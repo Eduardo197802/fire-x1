@@ -140,6 +140,123 @@ bindModal("modalCadastroConta", "btnCadastrar", "btnFecharModalCadastroConta", (
   showMessage("", "");
 });
 
+// ========== Login Modal ==========
+const loginMessage = document.getElementById("loginMessage");
+const recuperarMessage = document.getElementById("recuperarMessage");
+
+const showLoginMessage = (msg, type) => {
+  if (!loginMessage) return;
+  loginMessage.textContent = msg;
+  loginMessage.className = "form-message " + type;
+};
+
+const showRecuperarMessage = (msg, type) => {
+  if (!recuperarMessage) return;
+  recuperarMessage.textContent = msg;
+  recuperarMessage.className = "form-message " + type;
+};
+
+const openModal = (id) => { const m = document.getElementById(id); if (m) m.style.display = "flex"; };
+const closeModal = (id) => { const m = document.getElementById(id); if (m) m.style.display = "none"; };
+
+bindModal("modalLogin", "btnEntrar", "btnFecharModalLogin", () => {
+  const f = document.getElementById("loginForm");
+  if (f) f.reset();
+  showLoginMessage("", "");
+});
+
+const btnEsqueceuSenha = document.getElementById("btnEsqueceuSenha");
+if (btnEsqueceuSenha) {
+  btnEsqueceuSenha.addEventListener("click", () => {
+    closeModal("modalLogin");
+    const f = document.getElementById("recuperarForm");
+    if (f) f.reset();
+    showRecuperarMessage("", "");
+    openModal("modalRecuperarSenha");
+  });
+}
+
+const btnIrCadastro = document.getElementById("btnIrCadastro");
+if (btnIrCadastro) {
+  btnIrCadastro.addEventListener("click", () => {
+    closeModal("modalLogin");
+    openModal("modalCadastroConta");
+  });
+}
+
+const btnVoltarLogin = document.getElementById("btnVoltarLogin");
+if (btnVoltarLogin) {
+  btnVoltarLogin.addEventListener("click", () => {
+    closeModal("modalRecuperarSenha");
+    openModal("modalLogin");
+  });
+}
+
+const btnFecharRecuperar = document.getElementById("btnFecharModalRecuperarSenha");
+if (btnFecharRecuperar) {
+  btnFecharRecuperar.addEventListener("click", () => closeModal("modalRecuperarSenha"));
+}
+
+window.addEventListener("click", (e) => {
+  const mLogin = document.getElementById("modalLogin");
+  const mRecuperar = document.getElementById("modalRecuperarSenha");
+  if (mLogin && e.target === mLogin) mLogin.style.display = "none";
+  if (mRecuperar && e.target === mRecuperar) mRecuperar.style.display = "none";
+});
+
+const loginForm = document.getElementById("loginForm");
+if (loginForm) {
+  loginForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = loginForm.querySelector("button[type='submit']");
+    const email = document.getElementById("loginEmail").value.trim();
+    const senha = document.getElementById("loginSenha").value;
+    if (!email || !senha) { showLoginMessage("Preencha e-mail e senha.", "error"); return; }
+    btn.disabled = true;
+    showLoginMessage("Entrando...", "info");
+    try {
+      const res = await fetch("/user/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, senha })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao entrar.");
+      showLoginMessage("Acesso realizado com sucesso!", "success");
+    } catch (err) {
+      showLoginMessage(err.message, "error");
+    } finally {
+      btn.disabled = false;
+    }
+  });
+}
+
+const recuperarForm = document.getElementById("recuperarForm");
+if (recuperarForm) {
+  recuperarForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = recuperarForm.querySelector("button[type='submit']");
+    const email = document.getElementById("recuperarEmail").value.trim();
+    if (!email) { showRecuperarMessage("Informe seu e-mail.", "error"); return; }
+    btn.disabled = true;
+    showRecuperarMessage("Enviando...", "info");
+    try {
+      const res = await fetch("/user/recuperar-senha/solicitar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao solicitar.");
+      showRecuperarMessage("Se esse e-mail estiver cadastrado, você receberá as instruções.", "success");
+    } catch (err) {
+      showRecuperarMessage(err.message, "error");
+    } finally {
+      btn.disabled = false;
+    }
+  });
+}
+
 if (cpfInput) {
   cpfInput.addEventListener("input", (event) => {
     event.target.value = formatCpf(event.target.value);

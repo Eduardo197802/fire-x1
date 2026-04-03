@@ -180,6 +180,20 @@ const dispatchVerificationCode = async ({ channel, email, name, cellphone, code 
 
 const previewCode = (code) => (process.env.NODE_ENV === "production" ? undefined : code);
 
+// login
+router.post("/login", (req, res) => {
+  const email = String(req.body.email || "").trim().toLowerCase();
+  const senha = String(req.body.senha || "");
+  if (!email || !senha) return res.status(400).json({ error: "Informe e-mail e senha." });
+  db.get("SELECT * FROM users WHERE email = ?", [email], (err, user) => {
+    if (err) return res.status(500).json({ error: "Erro ao consultar conta." });
+    if (!user) return res.status(401).json({ error: "E-mail ou senha incorretos." });
+    if (!user.conta_verificada) return res.status(403).json({ error: "Conta ainda não verificada. Confirme seu e-mail." });
+    if (!bcrypt.compareSync(senha, user.senha_hash)) return res.status(401).json({ error: "E-mail ou senha incorretos." });
+    res.json({ id: user.id, nome: user.nome, email: user.email, saldo: user.saldo });
+  });
+});
+
 // criar usuário
 router.post("/criar", (req, res) => {
   const {

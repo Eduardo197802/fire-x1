@@ -15,7 +15,7 @@
       <img src="assets/logo.png" alt="Logo">
     </div>
     <div class="links">
-      <a href="/login" style="color:#ff6a00; font-weight:bold; font-size:1.2em; text-decoration:none;">Entrar</a> <span style="color:#ff6a00;">|</span> <a href="javascript:void(0)" id="btnCadastrar" style="color:#ff6a00; font-weight:bold; font-size:1.2em; text-decoration:none;">Cadastrar-se</a>
+      <a href="javascript:void(0)" id="btnEntrar" style="color:#ff6a00; font-weight:bold; font-size:1.2em; text-decoration:none;">Entrar</a> <span style="color:#ff6a00;">|</span> <a href="javascript:void(0)" id="btnCadastrar" style="color:#ff6a00; font-weight:bold; font-size:1.2em; text-decoration:none;">Cadastrar-se</a>
     </div>
   </div>
   <footer class="footer">
@@ -24,6 +24,73 @@
     <span id="btnTermos">Termos</span>
     <span id="btnPolitica">Política</span>
   </footer>
+  <!-- Modal Login -->
+  <div id="modalLogin" class="modal modal-cadastro">
+    <div class="modal-login-content">
+      <span class="close" id="btnFecharModalLogin">&times;</span>
+      <div class="login-layout">
+        <aside class="cadastro-side login-side">
+          <img src="assets/logo1.png" alt="Fire X1 Play" class="cadastro-logo">
+          <p class="eyebrow">Acesso seguro</p>
+          <h3>Entre na sua conta e participe das disputas.</h3>
+          <p class="cadastro-side-text">Acesse sua conta, acompanhe suas partidas e gerencie seu saldo com segurança.</p>
+          <ul class="cadastro-side-list">
+            <li>Acesso protegido com senha.</li>
+            <li>Sessão segura e criptografada.</li>
+            <li>Suporte a recuperacao de senha.</li>
+          </ul>
+        </aside>
+        <section class="login-main">
+          <div class="card-header">
+            <p class="eyebrow">Fire X1 Play</p>
+            <h2>Bem-vindo de volta</h2>
+            <p>Informe seu e-mail e senha para acessar.</p>
+          </div>
+          <form id="loginForm" class="login-form" novalidate>
+            <div class="field-group">
+              <label for="loginEmail">E-mail</label>
+              <input id="loginEmail" name="loginEmail" type="email" autocomplete="email" placeholder="voce@exemplo.com" required>
+            </div>
+            <div class="field-group">
+              <label for="loginSenha">Senha</label>
+              <input id="loginSenha" name="loginSenha" type="password" autocomplete="current-password" placeholder="Sua senha" required>
+            </div>
+            <button type="submit" class="submit-button">Entrar</button>
+            <p id="loginMessage" class="form-message" aria-live="polite"></p>
+          </form>
+          <div class="login-links">
+            <a href="javascript:void(0)" id="btnEsqueceuSenha">Esqueceu a senha?</a>
+            <span>|</span>
+            <a href="javascript:void(0)" id="btnIrCadastro">Criar conta</a>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Recuperar Senha -->
+  <div id="modalRecuperarSenha" class="modal modal-cadastro">
+    <div class="modal-recuperar-content">
+      <span class="close" id="btnFecharModalRecuperarSenha">&times;</span>
+      <div class="card-header" style="margin-bottom:18px">
+        <p class="eyebrow">Fire X1 Play</p>
+        <h2>Recuperar senha</h2>
+        <p style="color:#d2d2d2">Informe seu e-mail para receber o codigo de recuperacao.</p>
+      </div>
+      <form id="recuperarForm" class="login-form" novalidate>
+        <div class="field-group">
+          <label for="recuperarEmail">E-mail cadastrado</label>
+          <input id="recuperarEmail" name="recuperarEmail" type="email" autocomplete="email" placeholder="voce@exemplo.com" required>
+        </div>
+        <button type="submit" class="submit-button">Enviar codigo</button>
+        <p id="recuperarMessage" class="form-message" aria-live="polite"></p>
+      </form>
+      <div class="login-links" style="margin-top:14px">
+        <a href="javascript:void(0)" id="btnVoltarLogin">Voltar ao login</a>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal Cadastro -->
   <div id="modalCadastroConta" class="modal modal-cadastro">
     <div class="modal-cadastro-content">
