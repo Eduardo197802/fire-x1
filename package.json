@@ -1,0 +1,24 @@
+{
+  "name": "firex1",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "connect-livereload": "^0.6.1",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.0",
+    "express": "^5.2.1",
+    "gerencianet": "^1.0.3",
+    "livereload": "^0.10.3",
+    "nodemailer": "^8.0.4",
+    "nodemon": "^3.1.14",
+    "sqlite3": "^6.0.1"
+  }
+}
