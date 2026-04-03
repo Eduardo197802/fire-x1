@@ -2,6 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Fire X1 Paly</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -28,69 +29,81 @@
     <div class="modal-cadastro-content">
       <span class="close" id="btnFecharModalCadastroConta">&times;</span>
       <div class="modal-cadastro-form">
-        <div class="card-header">
-          <p class="eyebrow">Fire X1 Play</p>
-          <h2>Abra sua conta</h2>
-          <p>Informe os dados exigidos para um fluxo de cadastro inicial tipo bet.</p>
+        <div class="cadastro-layout">
+          <aside class="cadastro-side">
+            <img src="assets/logo.png" alt="Fire X1 Play" class="cadastro-logo">
+            <p class="eyebrow">Cadastro inicial</p>
+            <h3>Crie sua conta para entrar nas disputas.</h3>
+            <p class="cadastro-side-text">Preencha seus dados principais para ativar o acesso. A validacao de identidade pode ser solicitada depois, antes de movimentacoes financeiras.</p>
+            <ul class="cadastro-side-list">
+              <li>Cadastro para maiores de 18 anos.</li>
+              <li>CPF e contato unicos por conta.</li>
+              <li>Dados usados apenas para operacao e seguranca da plataforma.</li>
+            </ul>
+          </aside>
+
+          <section class="cadastro-main">
+            <div class="card-header">
+              <p class="eyebrow">Fire X1 Play</p>
+              <h2>Abra sua conta</h2>
+              <p>Informe os dados exigidos para um fluxo de cadastro inicial tipo bet.</p>
+            </div>
+
+            <form id="cadastroForm" class="register-form" novalidate>
+              <div class="field-group full-width">
+                <label for="nome">Nome completo</label>
+                <input id="nome" name="nome" type="text" autocomplete="name" placeholder="Seu nome completo" required>
+              </div>
+
+              <div class="field-group">
+                <label for="cpf">CPF</label>
+                <input id="cpf" name="cpf" type="text" inputmode="numeric" autocomplete="off" placeholder="000.000.000-00" maxlength="14" required>
+              </div>
+
+              <div class="field-group">
+                <label for="dataNascimento">Data de nascimento</label>
+                <input id="dataNascimento" name="dataNascimento" type="date" required>
+              </div>
+
+              <div class="field-group">
+                <label for="email">E-mail</label>
+                <input id="email" name="email" type="email" autocomplete="email" placeholder="voce@exemplo.com" required>
+              </div>
+
+              <div class="field-group">
+                <label for="celular">Celular</label>
+                <input id="celular" name="celular" type="tel" inputmode="tel" autocomplete="tel" placeholder="(00) 00000-0000" maxlength="15" required>
+              </div>
+
+              <input id="canalVerificacao" name="canalVerificacao" type="hidden" value="email">
+
+              <div class="field-group">
+                <label for="senha">Senha</label>
+                <input id="senha" name="senha" type="password" autocomplete="new-password" placeholder="Mínimo de 8 caracteres" minlength="8" required>
+              </div>
+
+              <div class="field-group">
+                <label for="confirmarSenha">Confirmar senha</label>
+                <input id="confirmarSenha" name="confirmarSenha" type="password" autocomplete="new-password" placeholder="Repita sua senha" minlength="8" required>
+              </div>
+
+              <label class="check-row full-width" for="maiorIdade">
+                <input id="maiorIdade" name="maiorIdade" type="checkbox" required>
+                <span>Declaro que tenho 18 anos ou mais.</span>
+              </label>
+
+              <label class="check-row full-width" for="aceiteTermos">
+                <input id="aceiteTermos" name="aceiteTermos" type="checkbox" required>
+                <span>Li e aceito os Termos, Regras e Política de Privacidade.</span>
+              </label>
+
+              <button type="submit" class="submit-button">Criar conta</button>
+              <p id="formMessage" class="form-message" aria-live="polite"></p>
+            </form>
+
+            <p class="cadastro-login-link">Já tem conta? <a href="/login">Entrar</a></p>
+          </section>
         </div>
-
-        <form id="cadastroForm" class="register-form" novalidate>
-          <div class="field-group full-width">
-            <label for="nome">Nome completo</label>
-            <input id="nome" name="nome" type="text" autocomplete="name" placeholder="Seu nome completo" required>
-          </div>
-
-          <div class="field-group">
-            <label for="cpf">CPF</label>
-            <input id="cpf" name="cpf" type="text" inputmode="numeric" autocomplete="off" placeholder="000.000.000-00" maxlength="14" required>
-          </div>
-
-          <div class="field-group">
-            <label for="dataNascimento">Data de nascimento</label>
-            <input id="dataNascimento" name="dataNascimento" type="date" required>
-          </div>
-
-          <div class="field-group">
-            <label for="email">E-mail</label>
-            <input id="email" name="email" type="email" autocomplete="email" placeholder="voce@exemplo.com" required>
-          </div>
-
-          <div class="field-group">
-            <label for="celular">Celular</label>
-            <input id="celular" name="celular" type="tel" inputmode="tel" autocomplete="tel" placeholder="(00) 00000-0000" maxlength="15" required>
-          </div>
-
-          <div class="field-group full-width">
-            <label for="canalVerificacao">Canal de confirmação</label>
-            <select id="canalVerificacao" name="canalVerificacao" required>
-              <option value="email">E-mail</option>
-              <option value="sms" disabled>SMS (em breve)</option>
-            </select>
-          </div>
-
-          <div class="field-group">
-            <label for="senha">Senha</label>
-            <input id="senha" name="senha" type="password" autocomplete="new-password" placeholder="Mínimo de 8 caracteres" minlength="8" required>
-          </div>
-
-          <div class="field-group">
-            <label for="confirmarSenha">Confirmar senha</label>
-            <input id="confirmarSenha" name="confirmarSenha" type="password" autocomplete="new-password" placeholder="Repita sua senha" minlength="8" required>
-          </div>
-
-          <label class="check-row full-width" for="maiorIdade">
-            <input id="maiorIdade" name="maiorIdade" type="checkbox" required>
-            <span>Declaro que tenho 18 anos ou mais.</span>
-          </label>
-
-          <label class="check-row full-width" for="aceiteTermos">
-            <input id="aceiteTermos" name="aceiteTermos" type="checkbox" required>
-            <span>Li e aceito os Termos, Regras e Política de Privacidade.</span>
-          </label>
-
-          <button type="submit" class="submit-button">Criar conta</button>
-          <p id="formMessage" class="form-message" aria-live="polite"></p>
-        </form>
       </div>
     </div>
   </div>

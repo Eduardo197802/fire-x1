@@ -1,86 +1,25 @@
-// Modal "Política"
-const modalPolitica = document.getElementById("modalPolitica");
-const btnPolitica = document.getElementById("btnPolitica");
-const spanPolitica = document.getElementById("btnFecharModalPolitica");
+const bindModal = (modalId, openButtonId, closeButtonId, onOpen) => {
+  const modal = document.getElementById(modalId);
+  const openButton = document.getElementById(openButtonId);
+  const closeButton = document.getElementById(closeButtonId);
 
-if (modalPolitica && btnPolitica && spanPolitica) {
-  btnPolitica.onclick = () => {
-    modalPolitica.style.display = "flex";
+  if (!modal || !openButton || !closeButton) return;
+
+  const open = () => {
+    modal.style.display = "flex";
+    if (typeof onOpen === "function") onOpen();
   };
 
-  spanPolitica.onclick = () => {
-    modalPolitica.style.display = "none";
+  const close = () => {
+    modal.style.display = "none";
   };
 
-  window.addEventListener("click", (event) => {
-    if (event.target === modalPolitica) {
-      modalPolitica.style.display = "none";
-    }
+  openButton.addEventListener("click", open);
+  closeButton.addEventListener("click", close);
+  modal.addEventListener("click", (event) => {
+    if (event.target === modal) close();
   });
-}
-
-// Modal "Termos"
-const modalTermos = document.getElementById("modalTermos");
-const btnTermos = document.getElementById("btnTermos");
-const spanTermos = document.getElementById("btnFecharModalTermos");
-
-if (modalTermos && btnTermos && spanTermos) {
-  btnTermos.onclick = () => {
-    modalTermos.style.display = "flex";
-  };
-
-  spanTermos.onclick = () => {
-    modalTermos.style.display = "none";
-  };
-
-  window.addEventListener("click", (event) => {
-    if (event.target === modalTermos) {
-      modalTermos.style.display = "none";
-    }
-  });
-}
-
-// Modal "Regras"
-const modalRegras = document.getElementById("modalRegras");
-const btnRegras = document.getElementById("btnRegras");
-const spanRegras = document.getElementById("btnFecharModalRegras");
-
-if (modalRegras && btnRegras && spanRegras) {
-  btnRegras.onclick = () => {
-    modalRegras.style.display = "flex";
-  };
-
-  spanRegras.onclick = () => {
-    modalRegras.style.display = "none";
-  };
-
-  window.addEventListener("click", (event) => {
-    if (event.target === modalRegras) {
-      modalRegras.style.display = "none";
-    }
-  });
-}
-
-// Modal "Sobre"
-const modalSobre = document.getElementById("modalSobre");
-const btnSobre = document.getElementById("btnSobre");
-const spanSobre = document.getElementById("btnFecharModalSobre");
-
-if (modalSobre && btnSobre && spanSobre) {
-  btnSobre.onclick = () => {
-    modalSobre.style.display = "flex";
-  };
-
-  spanSobre.onclick = () => {
-    modalSobre.style.display = "none";
-  };
-
-  window.addEventListener("click", (event) => {
-    if (event.target === modalSobre) {
-      modalSobre.style.display = "none";
-    }
-  });
-}
+};
 
 // ========== Validações e utilitários de cadastro ==========
 const onlyDigits = (value) => value.replace(/\D/g, "");
@@ -179,46 +118,42 @@ const formatPhone = (value) => {
 };
 
 // ========== Modal de cadastro ==========
-const btnCadastrar = document.getElementById("btnCadastrar");
-const modalCadastroConta = document.getElementById("modalCadastroConta");
-const btnFecharModalCadastroConta = document.getElementById("btnFecharModalCadastroConta");
 const cadastroForm = document.getElementById("cadastroForm");
 const formMessage = document.getElementById("formMessage");
 const cpfInput = document.getElementById("cpf");
 const celularInput = document.getElementById("celular");
 
 const showMessage = (message, type) => {
+  if (!formMessage) return;
   formMessage.textContent = message;
   formMessage.className = `form-message ${type}`;
 };
 
-if (btnCadastrar && modalCadastroConta && btnFecharModalCadastroConta) {
-  btnCadastrar.onclick = () => {
-    modalCadastroConta.style.display = "flex";
+bindModal("modalSobre", "btnSobre", "btnFecharModalSobre");
+bindModal("modalRegras", "btnRegras", "btnFecharModalRegras");
+bindModal("modalTermos", "btnTermos", "btnFecharModalTermos");
+bindModal("modalPolitica", "btnPolitica", "btnFecharModalPolitica");
+bindModal("modalCadastroConta", "btnCadastrar", "btnFecharModalCadastroConta", () => {
+  if (cadastroForm) {
     cadastroForm.reset();
-    showMessage("", "");
-  };
+  }
+  showMessage("", "");
+});
 
-  btnFecharModalCadastroConta.onclick = () => {
-    modalCadastroConta.style.display = "none";
-  };
-
-  window.addEventListener("click", (event) => {
-    if (event.target === modalCadastroConta) {
-      modalCadastroConta.style.display = "none";
-    }
+if (cpfInput) {
+  cpfInput.addEventListener("input", (event) => {
+    event.target.value = formatCpf(event.target.value);
   });
 }
 
-cpfInput?.addEventListener("input", (event) => {
-  event.target.value = formatCpf(event.target.value);
-});
+if (celularInput) {
+  celularInput.addEventListener("input", (event) => {
+    event.target.value = formatPhone(event.target.value);
+  });
+}
 
-celularInput?.addEventListener("input", (event) => {
-  event.target.value = formatPhone(event.target.value);
-});
-
-cadastroForm?.addEventListener("submit", async (event) => {
+if (cadastroForm) {
+  cadastroForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const submitButton = cadastroForm.querySelector("button[type='submit']");
   const formData = new FormData(cadastroForm);
@@ -325,4 +260,5 @@ cadastroForm?.addEventListener("submit", async (event) => {
   } finally {
     submitButton.disabled = false;
   }
+  });
 }
