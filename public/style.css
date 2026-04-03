@@ -558,8 +558,93 @@ body {
   line-height: 1;
 }
 
+.modal-confirmacao-content {
+  position: relative;
+  width: min(96vw, 980px);
+  margin: auto;
+  border: 0;
+  border-radius: 24px;
+  background: transparent;
+  overflow: hidden;
+  box-sizing: border-box;
+  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.6);
+}
+
+.modal-confirmacao-content .close {
+  position: absolute;
+  top: 16px;
+  right: 18px;
+  z-index: 2;
+  float: none;
+  font-size: 26px;
+  color: #ffa35d;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.modal-confirmacao-layout {
+  display: grid;
+  grid-template-columns: 1fr 1.08fr;
+  gap: 20px;
+  padding: clamp(12px, 2vw, 18px);
+  box-sizing: border-box;
+}
+
+.confirmacao-side {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.confirmacao-main {
+  border: 1px solid rgba(255, 106, 0, 0.3);
+  border-radius: 22px;
+  padding: 32px 28px 24px;
+  background: linear-gradient(165deg, #0b0b0c 0%, #080809 100%);
+}
+
+.helper-inline {
+  margin: 0;
+  color: #bfbfbf;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.modal-secondary-button {
+  border: 1px solid rgba(255, 106, 0, 0.35);
+  border-radius: 12px;
+  padding: 13px 18px;
+  background: transparent;
+  color: #f4f4f4;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+}
+
+.modal-secondary-button:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 106, 0, 0.08);
+  border-color: #ff6a00;
+}
+
+.modal-secondary-button:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.login-links-stack {
+  margin-top: 18px;
+}
+
 @media (max-width: 960px) {
   .login-layout {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .modal-confirmacao-layout {
     grid-template-columns: 1fr;
     gap: 12px;
   }
@@ -568,10 +653,19 @@ body {
     display: none;
   }
 
+  .confirmacao-side {
+    display: none;
+  }
+
   .modal-login-content {
     width: min(98vw, 700px);
     height: auto;
     max-height: 94dvh;
+    border-radius: 16px;
+  }
+
+  .modal-confirmacao-content {
+    width: min(98vw, 700px);
     border-radius: 16px;
   }
 }
@@ -583,6 +677,11 @@ body {
   }
 
   .login-main {
+    padding: 22px 16px 18px;
+    border-radius: 16px;
+  }
+
+  .confirmacao-main {
     padding: 22px 16px 18px;
     border-radius: 16px;
   }

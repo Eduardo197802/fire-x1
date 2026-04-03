@@ -621,6 +621,72 @@ router.post("/notificacoes/aposta", (req, res) => {
   });
 });
 
+router.get("/dashboard/:userId", (req, res) => {
+  const userId = Number(req.params.userId);
+
+  if (!userId) {
+    return res.status(400).json({ error: "Usuário inválido." });
+  }
+
+  db.get(
+    `SELECT id, nome, email, saldo, criado_em, conta_verificada, conta_liberada, canal_verificacao
+     FROM users
+     WHERE id = ?`,
+    [userId],
+    (selectError, user) => {
+      if (selectError) {
+        return res.status(500).json({ error: "Erro ao consultar a dashboard do usuário." });
+      }
+
+      if (!user) {
+        return res.status(404).json({ error: "Conta não encontrada." });
+      }
+
+      const createdAt = user.criado_em ? new Date(user.criado_em) : null;
+      const now = new Date();
+      const accountAgeDays = createdAt ? Math.max(0, Math.floor((now - createdAt) / (1000 * 60 * 60 * 24))) : 0;
+
+      return res.json({
+        user: {
+          id: user.id,
+          nome: user.nome,
+          email: user.email,
+          saldo: Number(user.saldo || 0),
+          criadoEm: user.criado_em,
+          contaVerificada: Boolean(user.conta_verificada),
+          contaLiberada: Boolean(user.conta_liberada),
+          canalVerificacao: user.canal_verificacao
+        },
+        metrics: {
+          saldoDisponivel: Number(user.saldo || 0),
+          contaVerificada: Boolean(user.conta_verificada),
+          contaLiberada: Boolean(user.conta_liberada),
+          diasDeConta: accountAgeDays
+        },
+        activity: [
+          {
+            titulo: "Conta sincronizada",
+            meta: `Dados da conta ${user.email} carregados com sucesso`,
+            tempo: "agora"
+          },
+          {
+            titulo: user.conta_verificada ? "Conta verificada" : "Verificação pendente",
+            meta: user.conta_verificada
+              ? "Seu cadastro já foi validado para uso da plataforma"
+              : "Finalize a verificação para liberar todos os recursos",
+            tempo: accountAgeDays > 0 ? `há ${accountAgeDays} dia(s)` : "hoje"
+          },
+          {
+            titulo: "Canal principal",
+            meta: `Verificação e contato principal via ${user.canal_verificacao || "email"}`,
+            tempo: "status atual"
+          }
+        ]
+      });
+    }
+  );
+});
+
 router.get("/status/:userId", (req, res) => {
   const userId = Number(req.params.userId);
 

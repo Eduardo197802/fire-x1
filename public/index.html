@@ -91,6 +91,53 @@
     </div>
   </div>
 
+  <!-- Modal Confirmacao -->
+  <div id="modalConfirmacaoConta" class="modal modal-cadastro">
+    <div class="modal-confirmacao-content">
+      <span class="close" id="btnFecharModalConfirmacaoConta">&times;</span>
+      <div class="modal-confirmacao-layout">
+        <aside class="cadastro-side confirmacao-side">
+          <img src="assets/logo.png" alt="Fire X1 Play" class="cadastro-logo">
+          <p class="eyebrow">Confirmacao obrigatoria</p>
+          <h3>Libere sua conta com o codigo enviado.</h3>
+          <p class="cadastro-side-text">Confirme o codigo de 6 digitos para concluir a ativacao da conta sem sair da tela principal.</p>
+          <ul class="cadastro-side-list">
+            <li>Codigo com expiração de 10 minutos.</li>
+            <li>Reenvio disponível em caso de necessidade.</li>
+            <li>Liberacao da conta assim que a validacao for concluida.</li>
+          </ul>
+        </aside>
+
+        <section class="confirmacao-main">
+          <div class="card-header">
+            <p class="eyebrow">Fire X1 Play</p>
+            <h2>Confirmar conta</h2>
+            <p id="confirmacaoDestino">Estamos preparando o envio do seu codigo.</p>
+            <p id="confirmacaoPreview" class="helper-text helper-inline"></p>
+          </div>
+
+          <form id="confirmacaoFormModal" class="login-form" novalidate>
+            <div class="field-group">
+              <label for="codigoConfirmacaoModal">Codigo de confirmacao</label>
+              <input id="codigoConfirmacaoModal" name="codigo" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" required>
+              <p class="helper-inline">Digite os 6 numeros enviados para o canal informado no cadastro.</p>
+            </div>
+
+            <button type="submit" class="submit-button">Confirmar e liberar conta</button>
+            <button type="button" id="btnReenviarCodigoModal" class="secondary-button modal-secondary-button">Reenviar codigo</button>
+            <p id="confirmacaoModalMessage" class="form-message" aria-live="polite"></p>
+          </form>
+
+          <div class="login-links login-links-stack">
+            <a href="javascript:void(0)" id="btnVoltarCadastro">Voltar ao cadastro</a>
+            <span>|</span>
+            <a href="javascript:void(0)" id="btnIrLoginConfirmacao">Ir para login</a>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal Cadastro -->
   <div id="modalCadastroConta" class="modal modal-cadastro">
     <div class="modal-cadastro-content">
@@ -168,7 +215,8 @@
               <p id="formMessage" class="form-message" aria-live="polite"></p>
             </form>
 
-            <p class="cadastro-login-link">Já tem conta? <a href="/login">Entrar</a></p>
+            <p class="cadastro-login-link">Já tem conta? <a href="javascript:void(0)" id="btnEntrarCadastro">Entrar</a></p>
+            <p class="cadastro-login-link">Recebeu o codigo? <a href="javascript:void(0)" id="btnAbrirConfirmacao">Confirmar conta</a></p>
           </section>
         </div>
       </div>

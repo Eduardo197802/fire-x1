@@ -122,11 +122,59 @@ const cadastroForm = document.getElementById("cadastroForm");
 const formMessage = document.getElementById("formMessage");
 const cpfInput = document.getElementById("cpf");
 const celularInput = document.getElementById("celular");
+const confirmacaoFormModal = document.getElementById("confirmacaoFormModal");
+const codigoConfirmacaoModal = document.getElementById("codigoConfirmacaoModal");
+const confirmacaoModalMessage = document.getElementById("confirmacaoModalMessage");
+const confirmacaoDestino = document.getElementById("confirmacaoDestino");
+const confirmacaoPreview = document.getElementById("confirmacaoPreview");
+const btnReenviarCodigoModal = document.getElementById("btnReenviarCodigoModal");
 
 const showMessage = (message, type) => {
   if (!formMessage) return;
   formMessage.textContent = message;
   formMessage.className = `form-message ${type}`;
+};
+
+const getVerificationState = () => {
+  try {
+    return JSON.parse(sessionStorage.getItem("firex1Verification") || "null");
+  } catch {
+    return null;
+  }
+};
+
+let verificationState = getVerificationState();
+
+const showConfirmacaoMessage = (message, type) => {
+  if (!confirmacaoModalMessage) return;
+  confirmacaoModalMessage.textContent = message;
+  confirmacaoModalMessage.className = `form-message ${type}`;
+};
+
+const updateConfirmacaoDestination = () => {
+  verificationState = getVerificationState();
+  const channel = verificationState?.channel === "sms" ? "SMS" : "e-mail";
+  const destination = verificationState?.destination || "seu contato cadastrado";
+
+  if (confirmacaoDestino) {
+    confirmacaoDestino.textContent = `Enviamos um código por ${channel} para ${destination}.`;
+  }
+
+  if (confirmacaoPreview) {
+    confirmacaoPreview.textContent = verificationState?.previewCode
+      ? `Ambiente local: código de teste ${verificationState.previewCode}`
+      : "";
+  }
+};
+
+const openConfirmacaoModal = () => {
+  updateConfirmacaoDestination();
+  if (codigoConfirmacaoModal) {
+    codigoConfirmacaoModal.value = "";
+  }
+  showConfirmacaoMessage("", "");
+  closeModal("modalCadastroConta");
+  openModal("modalConfirmacaoConta");
 };
 
 bindModal("modalSobre", "btnSobre", "btnFecharModalSobre");
@@ -197,11 +245,53 @@ if (btnFecharRecuperar) {
   btnFecharRecuperar.addEventListener("click", () => closeModal("modalRecuperarSenha"));
 }
 
+const btnFecharConfirmacao = document.getElementById("btnFecharModalConfirmacaoConta");
+if (btnFecharConfirmacao) {
+  btnFecharConfirmacao.addEventListener("click", () => closeModal("modalConfirmacaoConta"));
+}
+
+const btnEntrarCadastro = document.getElementById("btnEntrarCadastro");
+if (btnEntrarCadastro) {
+  btnEntrarCadastro.addEventListener("click", () => {
+    closeModal("modalCadastroConta");
+    openModal("modalLogin");
+  });
+}
+
+const btnAbrirConfirmacao = document.getElementById("btnAbrirConfirmacao");
+if (btnAbrirConfirmacao) {
+  btnAbrirConfirmacao.addEventListener("click", () => {
+    if (!getVerificationState()?.userId) {
+      showMessage("Conclua o cadastro primeiro para receber um código de confirmação.", "error");
+      return;
+    }
+    openConfirmacaoModal();
+  });
+}
+
+const btnVoltarCadastro = document.getElementById("btnVoltarCadastro");
+if (btnVoltarCadastro) {
+  btnVoltarCadastro.addEventListener("click", () => {
+    closeModal("modalConfirmacaoConta");
+    openModal("modalCadastroConta");
+  });
+}
+
+const btnIrLoginConfirmacao = document.getElementById("btnIrLoginConfirmacao");
+if (btnIrLoginConfirmacao) {
+  btnIrLoginConfirmacao.addEventListener("click", () => {
+    closeModal("modalConfirmacaoConta");
+    openModal("modalLogin");
+  });
+}
+
 window.addEventListener("click", (e) => {
   const mLogin = document.getElementById("modalLogin");
   const mRecuperar = document.getElementById("modalRecuperarSenha");
+  const mConfirmacao = document.getElementById("modalConfirmacaoConta");
   if (mLogin && e.target === mLogin) mLogin.style.display = "none";
   if (mRecuperar && e.target === mRecuperar) mRecuperar.style.display = "none";
+  if (mConfirmacao && e.target === mConfirmacao) mConfirmacao.style.display = "none";
 });
 
 const loginForm = document.getElementById("loginForm");
@@ -222,7 +312,11 @@ if (loginForm) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Erro ao entrar.");
+      localStorage.setItem("firex1:user", JSON.stringify(data));
       showLoginMessage("Acesso realizado com sucesso!", "success");
+      window.setTimeout(() => {
+        window.location.href = "/dashboard";
+      }, 500);
     } catch (err) {
       showLoginMessage(err.message, "error");
     } finally {
@@ -253,6 +347,106 @@ if (recuperarForm) {
       showRecuperarMessage(err.message, "error");
     } finally {
       btn.disabled = false;
+    }
+  });
+}
+
+if (codigoConfirmacaoModal) {
+  codigoConfirmacaoModal.addEventListener("input", (event) => {
+    event.target.value = String(event.target.value || "").replace(/\D/g, "").slice(0, 6);
+  });
+}
+
+if (confirmacaoFormModal) {
+  confirmacaoFormModal.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    verificationState = getVerificationState();
+
+    if (!verificationState?.userId) {
+      showConfirmacaoMessage("Sessão de confirmação inválida. Refaça o cadastro.", "error");
+      return;
+    }
+
+    const submitButton = confirmacaoFormModal.querySelector("button[type='submit']");
+    const codigo = String(codigoConfirmacaoModal?.value || "").replace(/\D/g, "");
+
+    if (codigo.length !== 6) {
+      showConfirmacaoMessage("Digite o código de 6 números.", "error");
+      return;
+    }
+
+    submitButton.disabled = true;
+    if (btnReenviarCodigoModal) btnReenviarCodigoModal.disabled = true;
+    showConfirmacaoMessage("Validando código...", "success");
+
+    try {
+      const response = await fetch("/user/verificar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: verificationState.userId, codigo })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Não foi possível validar o código.");
+      }
+
+      sessionStorage.removeItem("firex1Verification");
+      showConfirmacaoMessage("Conta confirmada com sucesso. Agora você já pode entrar.", "success");
+
+      setTimeout(() => {
+        closeModal("modalConfirmacaoConta");
+        openModal("modalLogin");
+        showLoginMessage("Conta confirmada. Faça login para continuar.", "success");
+      }, 1200);
+    } catch (error) {
+      showConfirmacaoMessage(error.message || "Erro ao confirmar o código.", "error");
+    } finally {
+      submitButton.disabled = false;
+      if (btnReenviarCodigoModal) btnReenviarCodigoModal.disabled = false;
+    }
+  });
+}
+
+if (btnReenviarCodigoModal) {
+  btnReenviarCodigoModal.addEventListener("click", async () => {
+    verificationState = getVerificationState();
+
+    if (!verificationState?.userId) {
+      showConfirmacaoMessage("Sessão de confirmação inválida. Refaça o cadastro.", "error");
+      return;
+    }
+
+    btnReenviarCodigoModal.disabled = true;
+    showConfirmacaoMessage("Reenviando código...", "success");
+
+    try {
+      const response = await fetch("/user/reenviar-codigo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: verificationState.userId })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Não foi possível reenviar o código.");
+      }
+
+      sessionStorage.setItem("firex1Verification", JSON.stringify({
+        userId: verificationState.userId,
+        channel: data.verificationChannel,
+        destination: data.maskedDestination,
+        previewCode: data.previewCode || ""
+      }));
+
+      updateConfirmacaoDestination();
+      showConfirmacaoMessage("Novo código enviado com sucesso.", "success");
+    } catch (error) {
+      showConfirmacaoMessage(error.message || "Erro ao reenviar o código.", "error");
+    } finally {
+      btnReenviarCodigoModal.disabled = false;
     }
   });
 }
@@ -371,7 +565,8 @@ if (cadastroForm) {
       previewCode: data.previewCode || ""
     }));
 
-    window.location.href = `/confirmacao?user=${encodeURIComponent(data.id)}`;
+    showMessage("Conta criada. Confirme o código para liberar o acesso.", "success");
+    openConfirmacaoModal();
   } catch (error) {
     showMessage(error.message || "Erro ao enviar cadastro.", "error");
   } finally {

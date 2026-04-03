@@ -1,9 +1,12 @@
 node_modules/
+.next/
 .env
 .env.local
 .env.*.local
 .DS_Store
 _pgbackup/
 _pginfo/
+database.db
+*.db
 *.log
 .vscode/settings.json
