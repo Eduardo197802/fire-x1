@@ -52,7 +52,7 @@
   display: grid;
   place-items: center;
   font-family: var(--font-display), sans-serif;
-  font-size: 1.15rem;
+  font-size: 24px;
   font-weight: 700;
   color: #130a04;
   background: linear-gradient(135deg, #ffd3ad 0%, var(--accent) 100%);
@@ -67,14 +67,14 @@
 }
 
 .brandTitle {
-  font-size: clamp(1.4rem, 2vw, 1.8rem);
+  font-size: 24px;
 }
 
 .kicker {
   margin: 0 0 6px;
   text-transform: uppercase;
   letter-spacing: 0.16em;
-  font-size: 0.72rem;
+  font-size: 14px;
   color: var(--accent-soft);
 }
 
@@ -96,7 +96,7 @@
 }
 
 .userPillLabel {
-  font-size: 0.72rem;
+  font-size: 14px;
   color: var(--muted);
 }
 
@@ -118,7 +118,7 @@
 }
 
 .heroTitle {
-  font-size: clamp(2rem, 4.3vw, 3.6rem);
+  font-size: 24px;
   max-width: 14ch;
 }
 
@@ -194,12 +194,12 @@
 
 .balanceLabel {
   margin: 0 0 10px;
-  font-size: 0.9rem;
+  font-size: 14px;
 }
 
 .balanceValue {
   font-family: var(--font-display), sans-serif;
-  font-size: clamp(2.2rem, 5vw, 3.4rem);
+  font-size: 24px;
 }
 
 .balanceMeta {
@@ -241,7 +241,7 @@
 .metricCard strong {
   display: block;
   margin: 12px 0 8px;
-  font-size: clamp(1.5rem, 2vw, 2.1rem);
+  font-size: 24px;
   font-family: var(--font-display), sans-serif;
 }
 
@@ -258,6 +258,7 @@
   margin: 0 0 10px;
   font-weight: 700;
   color: #fff3e7;
+  font-size: 24px;
 }
 
 .board {
@@ -294,7 +295,7 @@
   min-height: 34px;
   padding: 0 14px;
   border-radius: 999px;
-  font-size: 0.84rem;
+  font-size: 14px;
   border: 1px solid transparent;
 }
 
@@ -344,7 +345,7 @@
 
 .accountLabel {
   margin: 0 0 6px;
-  font-size: 0.9rem;
+  font-size: 14px;
 }
 
 .accountValue {
@@ -357,7 +358,7 @@
   background: rgba(255, 106, 0, 0.12);
   border: 1px solid var(--line-strong);
   color: #ffd7b5;
-  font-size: 0.82rem;
+  font-size: 14px;
   white-space: nowrap;
 }
 
@@ -380,7 +381,7 @@
   display: grid;
   place-items: center;
   font-family: var(--font-display), sans-serif;
-  font-size: 1.3rem;
+  font-size: 24px;
   font-weight: 700;
   color: #1c0d02;
   background: linear-gradient(135deg, #ffd3ad 0%, var(--accent) 100%);
@@ -439,9 +440,25 @@
 }
 
 .timelineItem span {
-  font-size: 0.84rem;
+  font-size: 14px;
   color: #d8a97b;
   white-space: nowrap;
+}
+
+.panelHeader h3,
+.profileCard h3 {
+  font-size: 24px;
+}
+
+.heroText,
+.metricCard p,
+.metricCard span,
+.actionCard span,
+.securityIntro p,
+.profileCard span,
+.walletStats p,
+.timelineItem p {
+  font-size: 14px;
 }
 
 .infoState,
