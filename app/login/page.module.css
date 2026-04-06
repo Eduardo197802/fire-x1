@@ -1,0 +1,104 @@
+.page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 15% 20%, rgba(255, 106, 0, 0.18), transparent 35%),
+    radial-gradient(circle at 80% 10%, rgba(255, 196, 0, 0.22), transparent 40%),
+    linear-gradient(160deg, #0c0c12 0%, #161625 100%);
+  padding: 24px;
+}
+
+.card {
+  width: min(420px, 100%);
+  background: rgba(18, 18, 28, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  padding: 28px;
+  color: #f6f7fb;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: #ffb366;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0 0 8px;
+  font-size: 28px;
+  line-height: 1.1;
+}
+
+.subtitle {
+  margin: 0 0 18px;
+  color: #c8ccdc;
+  font-size: 14px;
+}
+
+.form {
+  display: grid;
+  gap: 12px;
+}
+
+.label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  color: #d8dced;
+}
+
+.input {
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  padding: 0 12px;
+  outline: none;
+}
+
+.input:focus {
+  border-color: rgba(255, 164, 64, 0.8);
+}
+
+.button {
+  margin-top: 8px;
+  height: 46px;
+  border: 0;
+  border-radius: 12px;
+  background: linear-gradient(90deg, #ff6a00, #ff9a00);
+  color: #1b1207;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.message {
+  min-height: 20px;
+  margin: 2px 0 0;
+  font-size: 13px;
+}
+
+.error {
+  color: #ff8d8d;
+}
+
+.success {
+  color: #9dffbc;
+}
+
+.backLink {
+  display: inline-block;
+  margin-top: 12px;
+  color: #ffd6ad;
+  font-size: 13px;
+  text-decoration: none;
+}

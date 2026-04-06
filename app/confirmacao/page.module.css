@@ -1,0 +1,116 @@
+.page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 88% 15%, rgba(255, 142, 44, 0.18), transparent 40%),
+    radial-gradient(circle at 12% 70%, rgba(255, 196, 0, 0.2), transparent 44%),
+    linear-gradient(150deg, #0f1018 0%, #17182b 100%);
+  padding: 24px;
+}
+
+.card {
+  width: min(460px, 100%);
+  background: rgba(16, 18, 31, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  padding: 28px;
+  color: #f6f7fb;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.36);
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: #ffb366;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0 0 10px;
+  font-size: 28px;
+  line-height: 1.1;
+}
+
+.subtitle {
+  margin: 0 0 16px;
+  color: #c8ccdc;
+  font-size: 14px;
+}
+
+.input {
+  width: 100%;
+  height: 46px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  padding: 0 12px;
+  margin-bottom: 12px;
+  outline: none;
+}
+
+.input:focus {
+  border-color: rgba(255, 164, 64, 0.8);
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.buttonPrimary {
+  height: 44px;
+  border: 0;
+  border-radius: 12px;
+  background: linear-gradient(90deg, #ff6a00, #ff9a00);
+  color: #1b1207;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.buttonSecondary {
+  height: 44px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #ecefff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.buttonPrimary:disabled,
+.buttonSecondary:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.message {
+  min-height: 20px;
+  margin: 12px 0 6px;
+  font-size: 13px;
+}
+
+.error {
+  color: #ff8d8d;
+}
+
+.success {
+  color: #9dffbc;
+}
+
+.hint {
+  margin: 0;
+  color: #c8ccdc;
+  font-size: 13px;
+}
+
+.footerLink {
+  display: inline-block;
+  margin-top: 14px;
+  color: #ffd6ad;
+  font-size: 13px;
+  text-decoration: none;
+}

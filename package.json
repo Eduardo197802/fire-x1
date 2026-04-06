@@ -1,11 +1,10 @@
 {
   "name": "firex1",
   "version": "1.0.0",
-  "main": "server.js",
   "scripts": {
-    "dev": "node server.js",
+    "dev": "next dev",
     "build": "next build",
-    "start": "node server.js",
+    "start": "next start",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -14,15 +13,10 @@
   "description": "",
   "dependencies": {
     "bcryptjs": "^3.0.3",
-    "connect-livereload": "^0.6.1",
-    "cors": "^2.8.6",
     "dotenv": "^17.4.0",
-    "express": "^5.2.1",
     "gerencianet": "^1.0.3",
-    "livereload": "^0.10.3",
     "next": "^16.2.2",
     "nodemailer": "^8.0.4",
-    "nodemon": "^3.1.14",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "sqlite3": "^6.0.1"

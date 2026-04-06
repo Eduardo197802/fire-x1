@@ -68,7 +68,7 @@ export default function DashboardClient() {
 
     const loadDashboard = async () => {
       try {
-        const response = await fetch(`/user/dashboard/${parsedUser.id}`);
+        const response = await fetch(`/api/user/dashboard/${parsedUser.id}`);
         const data = await response.json();
 
         if (!response.ok) {
