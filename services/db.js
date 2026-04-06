@@ -29,7 +29,15 @@ const User = defineUserModel(sequelize);
 const initPromise = (async () => {
   await sequelize.authenticate();
 
-  await createUsersTable(sequelize);
+  const queryInterface = sequelize.getQueryInterface();
+  const tableNames = await queryInterface.showAllTables();
+  const normalizedTableNames = tableNames.map((tableName) =>
+    typeof tableName === "string" ? tableName : tableName.tableName || tableName.name
+  );
+
+  if (!normalizedTableNames.includes("users")) {
+    await createUsersTable(queryInterface, Sequelize);
+  }
 
   const columns = await sequelize.query("PRAGMA table_info(users)", {
     type: QueryTypes.SELECT

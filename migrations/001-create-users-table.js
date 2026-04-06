@@ -1,23 +1,84 @@
-export async function up(sequelize) {
-  await sequelize.query(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      nome TEXT,
-      email TEXT,
-      saldo REAL DEFAULT 0,
-      cpf TEXT,
-      data_nascimento TEXT,
-      celular TEXT,
-      senha_hash TEXT,
-      aceitou_termos INTEGER DEFAULT 0,
-      criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
-      canal_verificacao TEXT DEFAULT 'email',
-      codigo_verificacao TEXT,
-      codigo_expira_em TEXT,
-      conta_verificada INTEGER DEFAULT 0,
-      conta_liberada INTEGER DEFAULT 0,
-      reset_codigo TEXT,
-      reset_expira_em TEXT
-    )
-  `);
+export async function up(queryInterface, Sequelize) {
+  await queryInterface.createTable("users", {
+    id: {
+      type: Sequelize.INTEGER,
+      allowNull: false,
+      autoIncrement: true,
+      primaryKey: true
+    },
+    nome: {
+      type: Sequelize.TEXT,
+      allowNull: true
+    },
+    email: {
+      type: Sequelize.TEXT,
+      allowNull: true
+    },
+    saldo: {
+      type: Sequelize.FLOAT,
+      allowNull: true,
+      defaultValue: 0
+    },
+    cpf: {
+      type: Sequelize.TEXT,
+      allowNull: true
+    },
+    data_nascimento: {
+      type: Sequelize.TEXT,
+      allowNull: true
+    },
+    celular: {
+      type: Sequelize.TEXT,
+      allowNull: true
+    },
+    senha_hash: {
+      type: Sequelize.TEXT,
+      allowNull: true
+    },
+    aceitou_termos: {
+      type: Sequelize.INTEGER,
+      allowNull: true,
+      defaultValue: 0
+    },
+    criado_em: {
+      type: Sequelize.TEXT,
+      allowNull: true,
+      defaultValue: Sequelize.literal("CURRENT_TIMESTAMP")
+    },
+    canal_verificacao: {
+      type: Sequelize.TEXT,
+      allowNull: true,
+      defaultValue: "email"
+    },
+    codigo_verificacao: {
+      type: Sequelize.TEXT,
+      allowNull: true
+    },
+    codigo_expira_em: {
+      type: Sequelize.TEXT,
+      allowNull: true
+    },
+    conta_verificada: {
+      type: Sequelize.INTEGER,
+      allowNull: true,
+      defaultValue: 0
+    },
+    conta_liberada: {
+      type: Sequelize.INTEGER,
+      allowNull: true,
+      defaultValue: 0
+    },
+    reset_codigo: {
+      type: Sequelize.TEXT,
+      allowNull: true
+    },
+    reset_expira_em: {
+      type: Sequelize.TEXT,
+      allowNull: true
+    }
+  });
+}
+
+export async function down(queryInterface) {
+  await queryInterface.dropTable("users");
 }
