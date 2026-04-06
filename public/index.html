@@ -2,6 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Fire X1 Paly</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,7 +15,7 @@
       <img src="assets/logo.png" alt="Logo">
     </div>
     <div class="links">
-      <a href="/login" style="color:#ff6a00; font-weight:bold; font-size:24px; text-decoration:none;">Entrar</a> <span style="color:#ff6a00;">|</span> <a href="javascript:void(0)" id="btnCadastrar" style="color:#ff6a00; font-weight:bold; font-size:24px; text-decoration:none;">Cadastrar-se</a>
+      <a href="javascript:void(0)" id="btnEntrar" style="color:#ff6a00; font-weight:bold; font-size:1.2em; text-decoration:none;">Entrar</a> <span style="color:#ff6a00;">|</span> <a href="javascript:void(0)" id="btnCadastrar" style="color:#ff6a00; font-weight:bold; font-size:1.2em; text-decoration:none;">Cadastrar-se</a>
     </div>
   </div>
   <footer class="footer">
@@ -23,74 +24,201 @@
     <span id="btnTermos">Termos</span>
     <span id="btnPolitica">Política</span>
   </footer>
+  <!-- Modal Login -->
+  <div id="modalLogin" class="modal modal-cadastro">
+    <div class="modal-login-content">
+      <span class="close" id="btnFecharModalLogin">&times;</span>
+      <div class="login-layout">
+        <aside class="cadastro-side login-side">
+          <img src="assets/logo.png" alt="Fire X1 Play" class="cadastro-logo">
+          <p class="eyebrow">Acesso seguro</p>
+          <h3>Entre na sua conta e participe das disputas.</h3>
+          <p class="cadastro-side-text">Acesse sua conta, acompanhe suas partidas e gerencie seu saldo com segurança.</p>
+          <ul class="cadastro-side-list">
+            <li>Acesso protegido com senha.</li>
+            <li>Sessão segura e criptografada.</li>
+            <li>Suporte a recuperacao de senha.</li>
+          </ul>
+        </aside>
+        <section class="login-main">
+          <div class="card-header">
+            <p class="eyebrow">Fire X1 Play</p>
+            <h2>Bem-vindo de volta</h2>
+            <p>Informe seu e-mail e senha para acessar.</p>
+          </div>
+          <form id="loginForm" class="login-form" novalidate>
+            <div class="field-group">
+              <label for="loginEmail">E-mail</label>
+              <input id="loginEmail" name="loginEmail" type="email" autocomplete="email" placeholder="voce@exemplo.com" required>
+            </div>
+            <div class="field-group">
+              <label for="loginSenha">Senha</label>
+              <input id="loginSenha" name="loginSenha" type="password" autocomplete="current-password" placeholder="Sua senha" required>
+            </div>
+            <button type="submit" class="submit-button">Entrar</button>
+            <p id="loginMessage" class="form-message" aria-live="polite"></p>
+          </form>
+          <div class="login-links">
+            <a href="javascript:void(0)" id="btnEsqueceuSenha">Esqueceu a senha?</a>
+            <span>|</span>
+            <a href="javascript:void(0)" id="btnIrCadastro">Criar conta</a>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Recuperar Senha -->
+  <div id="modalRecuperarSenha" class="modal modal-cadastro">
+    <div class="modal-recuperar-content">
+      <span class="close" id="btnFecharModalRecuperarSenha">&times;</span>
+      <div class="card-header" style="margin-bottom:18px">
+        <p class="eyebrow">Fire X1 Play</p>
+        <h2>Recuperar senha</h2>
+        <p style="color:#d2d2d2">Informe seu e-mail para receber o codigo de recuperacao.</p>
+      </div>
+      <form id="recuperarForm" class="login-form" novalidate>
+        <div class="field-group">
+          <label for="recuperarEmail">E-mail cadastrado</label>
+          <input id="recuperarEmail" name="recuperarEmail" type="email" autocomplete="email" placeholder="voce@exemplo.com" required>
+        </div>
+        <button type="submit" class="submit-button">Enviar codigo</button>
+        <p id="recuperarMessage" class="form-message" aria-live="polite"></p>
+      </form>
+      <div class="login-links" style="margin-top:14px">
+        <a href="javascript:void(0)" id="btnVoltarLogin">Voltar ao login</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Confirmacao -->
+  <div id="modalConfirmacaoConta" class="modal modal-cadastro">
+    <div class="modal-confirmacao-content">
+      <span class="close" id="btnFecharModalConfirmacaoConta">&times;</span>
+      <div class="modal-confirmacao-layout">
+        <aside class="cadastro-side confirmacao-side">
+          <img src="assets/logo.png" alt="Fire X1 Play" class="cadastro-logo">
+          <p class="eyebrow">Confirmacao obrigatoria</p>
+          <h3>Libere sua conta com o codigo enviado.</h3>
+          <p class="cadastro-side-text">Confirme o codigo de 6 digitos para concluir a ativacao da conta sem sair da tela principal.</p>
+          <ul class="cadastro-side-list">
+            <li>Codigo com expiração de 10 minutos.</li>
+            <li>Reenvio disponível em caso de necessidade.</li>
+            <li>Liberacao da conta assim que a validacao for concluida.</li>
+          </ul>
+        </aside>
+
+        <section class="confirmacao-main">
+          <div class="card-header">
+            <p class="eyebrow">Fire X1 Play</p>
+            <h2>Confirmar conta</h2>
+            <p id="confirmacaoDestino">Estamos preparando o envio do seu codigo.</p>
+            <p id="confirmacaoPreview" class="helper-text helper-inline"></p>
+          </div>
+
+          <form id="confirmacaoFormModal" class="login-form" novalidate>
+            <div class="field-group">
+              <label for="codigoConfirmacaoModal">Codigo de confirmacao</label>
+              <input id="codigoConfirmacaoModal" name="codigo" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" required>
+              <p class="helper-inline">Digite os 6 numeros enviados para o canal informado no cadastro.</p>
+            </div>
+
+            <button type="submit" class="submit-button">Confirmar e liberar conta</button>
+            <button type="button" id="btnReenviarCodigoModal" class="secondary-button modal-secondary-button">Reenviar codigo</button>
+            <p id="confirmacaoModalMessage" class="form-message" aria-live="polite"></p>
+          </form>
+
+          <div class="login-links login-links-stack">
+            <a href="javascript:void(0)" id="btnVoltarCadastro">Voltar ao cadastro</a>
+            <span>|</span>
+            <a href="javascript:void(0)" id="btnIrLoginConfirmacao">Ir para login</a>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal Cadastro -->
   <div id="modalCadastroConta" class="modal modal-cadastro">
     <div class="modal-cadastro-content">
       <span class="close" id="btnFecharModalCadastroConta">&times;</span>
       <div class="modal-cadastro-form">
-        <div class="card-header">
-          <p class="eyebrow">Fire X1 Play</p>
-          <h2>Abra sua conta</h2>
-          <p>Informe os dados exigidos para um fluxo de cadastro inicial tipo bet.</p>
+        <div class="cadastro-layout">
+          <aside class="cadastro-side">
+            <img src="assets/logo.png" alt="Fire X1 Play" class="cadastro-logo">
+            <p class="eyebrow">Cadastro inicial</p>
+            <h3>Crie sua conta para entrar nas disputas.</h3>
+            <p class="cadastro-side-text">Preencha seus dados principais para ativar o acesso. A validacao de identidade pode ser solicitada depois, antes de movimentacoes financeiras.</p>
+            <ul class="cadastro-side-list">
+              <li>Cadastro para maiores de 18 anos.</li>
+              <li>CPF e contato unicos por conta.</li>
+              <li>Dados usados apenas para operacao e seguranca da plataforma.</li>
+            </ul>
+          </aside>
+
+          <section class="cadastro-main">
+            <div class="card-header">
+              <p class="eyebrow">Fire X1 Play</p>
+              <h2>Abra sua conta</h2>
+              <p>Informe os dados exigidos para um fluxo de cadastro inicial tipo bet.</p>
+            </div>
+
+            <form id="cadastroForm" class="register-form" novalidate>
+              <div class="field-group full-width">
+                <label for="nome">Nome completo</label>
+                <input id="nome" name="nome" type="text" autocomplete="name" placeholder="Seu nome completo" required>
+              </div>
+
+              <div class="field-group">
+                <label for="cpf">CPF</label>
+                <input id="cpf" name="cpf" type="text" inputmode="numeric" autocomplete="off" placeholder="000.000.000-00" maxlength="14" required>
+              </div>
+
+              <div class="field-group">
+                <label for="dataNascimento">Data de nascimento</label>
+                <input id="dataNascimento" name="dataNascimento" type="date" required>
+              </div>
+
+              <div class="field-group">
+                <label for="email">E-mail</label>
+                <input id="email" name="email" type="email" autocomplete="email" placeholder="voce@exemplo.com" required>
+              </div>
+
+              <div class="field-group">
+                <label for="celular">Celular</label>
+                <input id="celular" name="celular" type="tel" inputmode="tel" autocomplete="tel" placeholder="(00) 00000-0000" maxlength="15" required>
+              </div>
+
+              <input id="canalVerificacao" name="canalVerificacao" type="hidden" value="email">
+
+              <div class="field-group">
+                <label for="senha">Senha</label>
+                <input id="senha" name="senha" type="password" autocomplete="new-password" placeholder="Mínimo de 8 caracteres" minlength="8" required>
+              </div>
+
+              <div class="field-group">
+                <label for="confirmarSenha">Confirmar senha</label>
+                <input id="confirmarSenha" name="confirmarSenha" type="password" autocomplete="new-password" placeholder="Repita sua senha" minlength="8" required>
+              </div>
+
+              <label class="check-row full-width" for="maiorIdade">
+                <input id="maiorIdade" name="maiorIdade" type="checkbox" required>
+                <span>Declaro que tenho 18 anos ou mais.</span>
+              </label>
+
+              <label class="check-row full-width" for="aceiteTermos">
+                <input id="aceiteTermos" name="aceiteTermos" type="checkbox" required>
+                <span>Li e aceito os Termos, Regras e Política de Privacidade.</span>
+              </label>
+
+              <button type="submit" class="submit-button">Criar conta</button>
+              <p id="formMessage" class="form-message" aria-live="polite"></p>
+            </form>
+
+            <p class="cadastro-login-link">Já tem conta? <a href="javascript:void(0)" id="btnEntrarCadastro">Entrar</a></p>
+            <p class="cadastro-login-link">Recebeu o codigo? <a href="javascript:void(0)" id="btnAbrirConfirmacao">Confirmar conta</a></p>
+          </section>
         </div>
-
-        <form id="cadastroForm" class="register-form" novalidate>
-          <div class="field-group full-width">
-            <label for="nome">Nome completo</label>
-            <input id="nome" name="nome" type="text" autocomplete="name" placeholder="Seu nome completo" required>
-          </div>
-
-          <div class="field-group">
-            <label for="cpf">CPF</label>
-            <input id="cpf" name="cpf" type="text" inputmode="numeric" autocomplete="off" placeholder="000.000.000-00" maxlength="14" required>
-          </div>
-
-          <div class="field-group">
-            <label for="dataNascimento">Data de nascimento</label>
-            <input id="dataNascimento" name="dataNascimento" type="date" required>
-          </div>
-
-          <div class="field-group">
-            <label for="email">E-mail</label>
-            <input id="email" name="email" type="email" autocomplete="email" placeholder="voce@exemplo.com" required>
-          </div>
-
-          <div class="field-group">
-            <label for="celular">Celular</label>
-            <input id="celular" name="celular" type="tel" inputmode="tel" autocomplete="tel" placeholder="(00) 00000-0000" maxlength="15" required>
-          </div>
-
-          <div class="field-group full-width">
-            <label for="canalVerificacao">Canal de confirmação</label>
-            <select id="canalVerificacao" name="canalVerificacao" required>
-              <option value="email">E-mail</option>
-              <option value="sms" disabled>SMS (em breve)</option>
-            </select>
-          </div>
-
-          <div class="field-group">
-            <label for="senha">Senha</label>
-            <input id="senha" name="senha" type="password" autocomplete="new-password" placeholder="Mínimo de 8 caracteres" minlength="8" required>
-          </div>
-
-          <div class="field-group">
-            <label for="confirmarSenha">Confirmar senha</label>
-            <input id="confirmarSenha" name="confirmarSenha" type="password" autocomplete="new-password" placeholder="Repita sua senha" minlength="8" required>
-          </div>
-
-          <label class="check-row full-width" for="maiorIdade">
-            <input id="maiorIdade" name="maiorIdade" type="checkbox" required>
-            <span>Declaro que tenho 18 anos ou mais.</span>
-          </label>
-
-          <label class="check-row full-width" for="aceiteTermos">
-            <input id="aceiteTermos" name="aceiteTermos" type="checkbox" required>
-            <span>Li e aceito os Termos, Regras e Política de Privacidade.</span>
-          </label>
-
-          <button type="submit" class="submit-button">Criar conta</button>
-          <p id="formMessage" class="form-message" aria-live="polite"></p>
-        </form>
       </div>
     </div>
   </div>
