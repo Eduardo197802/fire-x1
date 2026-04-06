@@ -1,20 +1,8 @@
 import { NextResponse } from "next/server";
-import db from "../../../../db";
+import { init, User } from "../../../../services/db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const dbGet = (sql, params = []) =>
-  new Promise((resolve, reject) => {
-    db.get(sql, params, (error, row) => {
-      if (error) {
-        reject(error);
-        return;
-      }
-
-      resolve(row);
-    });
-  });
 
 export async function POST(request) {
   let body = {};
@@ -32,7 +20,12 @@ export async function POST(request) {
   }
 
   try {
-    const user = await dbGet("SELECT conta_liberada FROM users WHERE id = ?", [userId]);
+    await init;
+
+    const user = await User.findByPk(userId, {
+      attributes: ["conta_liberada"],
+      raw: true
+    });
 
     if (!user) {
       return NextResponse.json({ error: "Conta não encontrada." }, { status: 404 });

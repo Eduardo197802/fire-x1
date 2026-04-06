@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
+import { Op } from "sequelize";
 import { NextResponse } from "next/server";
-import db from "../../../../db";
+import { init, User } from "../../../../services/db";
 import {
   sendBetNotificationEmail,
   sendPasswordRecoveryEmail,
@@ -49,33 +50,6 @@ const parseJson = async (request) => {
     return {};
   }
 };
-
-const dbGet = (sql, params = []) =>
-  new Promise((resolve, reject) => {
-    db.get(sql, params, (error, row) => {
-      if (error) {
-        reject(error);
-        return;
-      }
-
-      resolve(row);
-    });
-  });
-
-const dbRun = (sql, params = []) =>
-  new Promise((resolve, reject) => {
-    db.run(sql, params, function onRun(error) {
-      if (error) {
-        reject(error);
-        return;
-      }
-
-      resolve({
-        lastID: this.lastID,
-        changes: this.changes
-      });
-    });
-  });
 
 const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim().toLowerCase());
 
@@ -233,7 +207,10 @@ const postLogin = async (body) => {
   }
 
   try {
-    const user = await dbGet("SELECT * FROM users WHERE email = ?", [email]);
+    const user = await User.findOne({
+      where: { email },
+      raw: true
+    });
 
     if (!user) {
       return json({ error: "E-mail ou senha incorretos." }, 401);
@@ -325,10 +302,13 @@ const postCriar = async (body) => {
   }
 
   try {
-    const existingUser = await dbGet("SELECT id FROM users WHERE email = ? OR cpf = ?", [
-      normalizedEmail,
-      normalizedCpf
-    ]);
+    const existingUser = await User.findOne({
+      where: {
+        [Op.or]: [{ email: normalizedEmail }, { cpf: normalizedCpf }]
+      },
+      attributes: ["id"],
+      raw: true
+    });
 
     if (existingUser) {
       return json({ error: "Já existe uma conta com este e-mail ou CPF." }, 409);
@@ -338,36 +318,20 @@ const postCriar = async (body) => {
     const verificationCode = generateVerificationCode();
     const verificationExpiry = getExpirationDate();
 
-    const insertResult = await dbRun(
-      `INSERT INTO users (
-        nome,
-        cpf,
-        data_nascimento,
-        email,
-        celular,
-        senha_hash,
-        aceitou_termos,
-        canal_verificacao,
-        codigo_verificacao,
-        codigo_expira_em,
-        conta_verificada,
-        conta_liberada
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        normalizedNome,
-        normalizedCpf,
-        normalizedBirthDate,
-        normalizedEmail,
-        normalizedCelular,
-        senhaHash,
-        aceiteTermos ? 1 : 0,
-        normalizedVerificationChannel,
-        verificationCode,
-        verificationExpiry,
-        0,
-        0
-      ]
-    );
+    const createdUser = await User.create({
+      nome: normalizedNome,
+      cpf: normalizedCpf,
+      data_nascimento: normalizedBirthDate,
+      email: normalizedEmail,
+      celular: normalizedCelular,
+      senha_hash: senhaHash,
+      aceitou_termos: aceiteTermos ? 1 : 0,
+      canal_verificacao: normalizedVerificationChannel,
+      codigo_verificacao: verificationCode,
+      codigo_expira_em: verificationExpiry,
+      conta_verificada: 0,
+      conta_liberada: 0
+    });
 
     try {
       await dispatchVerificationCode({
@@ -379,7 +343,7 @@ const postCriar = async (body) => {
       });
     } catch (emailError) {
       console.error("Erro ao enviar e-mail de confirmação:", emailError.message);
-      await dbRun("DELETE FROM users WHERE id = ?", [insertResult.lastID]);
+      await User.destroy({ where: { id: createdUser.id } });
       return json(
         { error: "Não foi possível enviar o e-mail de confirmação. Tente novamente em instantes." },
         502
@@ -388,7 +352,7 @@ const postCriar = async (body) => {
 
     return json(
       {
-        id: insertResult.lastID,
+        id: createdUser.id,
         nome: normalizedNome,
         cpf: normalizedCpf,
         dataNascimento: normalizedBirthDate,
@@ -419,12 +383,18 @@ const postVerificar = async (body) => {
   }
 
   try {
-    const user = await dbGet(
-      `SELECT id, email, celular, canal_verificacao, codigo_verificacao, codigo_expira_em, conta_verificada
-       FROM users
-       WHERE id = ?`,
-      [userId]
-    );
+    const user = await User.findByPk(userId, {
+      attributes: [
+        "id",
+        "email",
+        "celular",
+        "canal_verificacao",
+        "codigo_verificacao",
+        "codigo_expira_em",
+        "conta_verificada"
+      ],
+      raw: true
+    });
 
     if (!user) {
       return json({ error: "Conta não encontrada." }, 404);
@@ -442,14 +412,14 @@ const postVerificar = async (body) => {
       return json({ error: "Código inválido." }, 400);
     }
 
-    await dbRun(
-      `UPDATE users
-       SET conta_verificada = 1,
-           conta_liberada = 1,
-           codigo_verificacao = NULL,
-           codigo_expira_em = NULL
-       WHERE id = ?`,
-      [userId]
+    await User.update(
+      {
+        conta_verificada: 1,
+        conta_liberada: 1,
+        codigo_verificacao: null,
+        codigo_expira_em: null
+      },
+      { where: { id: userId } }
     );
 
     return json({ success: true, contaLiberada: true });
@@ -466,12 +436,10 @@ const postReenviarCodigo = async (body) => {
   }
 
   try {
-    const user = await dbGet(
-      `SELECT id, email, celular, canal_verificacao, conta_verificada
-       FROM users
-       WHERE id = ?`,
-      [userId]
-    );
+    const user = await User.findByPk(userId, {
+      attributes: ["id", "email", "celular", "canal_verificacao", "conta_verificada"],
+      raw: true
+    });
 
     if (!user) {
       return json({ error: "Conta não encontrada." }, 404);
@@ -484,12 +452,12 @@ const postReenviarCodigo = async (body) => {
     const verificationCode = generateVerificationCode();
     const verificationExpiry = getExpirationDate();
 
-    await dbRun(
-      `UPDATE users
-       SET codigo_verificacao = ?,
-           codigo_expira_em = ?
-       WHERE id = ?`,
-      [verificationCode, verificationExpiry, userId]
+    await User.update(
+      {
+        codigo_verificacao: verificationCode,
+        codigo_expira_em: verificationExpiry
+      },
+      { where: { id: userId } }
     );
 
     try {
@@ -523,7 +491,11 @@ const postRecuperarSenhaSolicitar = async (body) => {
   }
 
   try {
-    const user = await dbGet("SELECT id, email FROM users WHERE email = ?", [normalizedEmail]);
+    const user = await User.findOne({
+      where: { email: normalizedEmail },
+      attributes: ["id", "email"],
+      raw: true
+    });
 
     if (!user) {
       return json({ error: "Conta não encontrada para este e-mail." }, 404);
@@ -532,11 +504,13 @@ const postRecuperarSenhaSolicitar = async (body) => {
     const resetCode = generateVerificationCode();
     const resetExpiry = getExpirationDate();
 
-    await dbRun("UPDATE users SET reset_codigo = ?, reset_expira_em = ? WHERE id = ?", [
-      resetCode,
-      resetExpiry,
-      user.id
-    ]);
+    await User.update(
+      {
+        reset_codigo: resetCode,
+        reset_expira_em: resetExpiry
+      },
+      { where: { id: user.id } }
+    );
 
     try {
       await sendPasswordRecoveryEmail({
@@ -580,9 +554,11 @@ const postRecuperarSenhaRedefinir = async (body) => {
   }
 
   try {
-    const user = await dbGet("SELECT id, reset_codigo, reset_expira_em FROM users WHERE email = ?", [
-      normalizedEmail
-    ]);
+    const user = await User.findOne({
+      where: { email: normalizedEmail },
+      attributes: ["id", "reset_codigo", "reset_expira_em"],
+      raw: true
+    });
 
     if (!user) {
       return json({ error: "Conta não encontrada para este e-mail." }, 404);
@@ -602,13 +578,13 @@ const postRecuperarSenhaRedefinir = async (body) => {
 
     const senhaHash = bcrypt.hashSync(newPassword, 10);
 
-    await dbRun(
-      `UPDATE users
-       SET senha_hash = ?,
-           reset_codigo = NULL,
-           reset_expira_em = NULL
-       WHERE id = ?`,
-      [senhaHash, user.id]
+    await User.update(
+      {
+        senha_hash: senhaHash,
+        reset_codigo: null,
+        reset_expira_em: null
+      },
+      { where: { id: user.id } }
     );
 
     return json({ success: true, message: "Senha redefinida com sucesso." });
@@ -627,7 +603,10 @@ const postNotificacoesAposta = async (body) => {
   }
 
   try {
-    const user = await dbGet("SELECT email FROM users WHERE id = ?", [userId]);
+    const user = await User.findByPk(userId, {
+      attributes: ["email"],
+      raw: true
+    });
 
     if (!user) {
       return json({ error: "Conta não encontrada." }, 404);
@@ -656,12 +635,19 @@ const getDashboard = async (userId) => {
   }
 
   try {
-    const user = await dbGet(
-      `SELECT id, nome, email, saldo, criado_em, conta_verificada, conta_liberada, canal_verificacao
-       FROM users
-       WHERE id = ?`,
-      [userId]
-    );
+    const user = await User.findByPk(userId, {
+      attributes: [
+        "id",
+        "nome",
+        "email",
+        "saldo",
+        "criado_em",
+        "conta_verificada",
+        "conta_liberada",
+        "canal_verificacao"
+      ],
+      raw: true
+    });
 
     if (!user) {
       return json({ error: "Conta não encontrada." }, 404);
@@ -719,12 +705,10 @@ const getStatus = async (userId) => {
   }
 
   try {
-    const user = await dbGet(
-      `SELECT id, canal_verificacao, conta_verificada, conta_liberada, email, celular
-       FROM users
-       WHERE id = ?`,
-      [userId]
-    );
+    const user = await User.findByPk(userId, {
+      attributes: ["id", "canal_verificacao", "conta_verificada", "conta_liberada", "email", "celular"],
+      raw: true
+    });
 
     if (!user) {
       return json({ error: "Conta não encontrada." }, 404);
@@ -743,6 +727,8 @@ const getStatus = async (userId) => {
 };
 
 export async function POST(request, { params }) {
+  await init;
+
   const path = await getPath(params);
   const body = await parseJson(request);
 
@@ -778,6 +764,8 @@ export async function POST(request, { params }) {
 }
 
 export async function GET(_request, { params }) {
+  await init;
+
   const path = await getPath(params);
 
   if (path.startsWith("dashboard/")) {
