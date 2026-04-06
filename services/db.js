@@ -1,4 +1,6 @@
-import { DataTypes, QueryTypes, Sequelize } from "sequelize";
+import { QueryTypes, Sequelize } from "sequelize";
+import { up as createUsersTable } from "../migrations/001-create-users-table";
+import defineUserModel from "../models/User";
 
 const sequelize = new Sequelize({
   dialect: "sqlite",
@@ -22,79 +24,12 @@ const requiredColumns = [
   { name: "reset_expira_em", definition: "reset_expira_em TEXT" }
 ];
 
-const User = sequelize.define(
-  "User",
-  {
-    id: {
-      type: DataTypes.INTEGER,
-      primaryKey: true,
-      autoIncrement: true
-    },
-    nome: DataTypes.TEXT,
-    email: DataTypes.TEXT,
-    saldo: {
-      type: DataTypes.FLOAT,
-      defaultValue: 0
-    },
-    cpf: DataTypes.TEXT,
-    data_nascimento: DataTypes.TEXT,
-    celular: DataTypes.TEXT,
-    senha_hash: DataTypes.TEXT,
-    aceitou_termos: {
-      type: DataTypes.INTEGER,
-      defaultValue: 0
-    },
-    criado_em: {
-      type: DataTypes.TEXT,
-      defaultValue: Sequelize.literal("CURRENT_TIMESTAMP")
-    },
-    canal_verificacao: {
-      type: DataTypes.TEXT,
-      defaultValue: "email"
-    },
-    codigo_verificacao: DataTypes.TEXT,
-    codigo_expira_em: DataTypes.TEXT,
-    conta_verificada: {
-      type: DataTypes.INTEGER,
-      defaultValue: 0
-    },
-    conta_liberada: {
-      type: DataTypes.INTEGER,
-      defaultValue: 0
-    },
-    reset_codigo: DataTypes.TEXT,
-    reset_expira_em: DataTypes.TEXT
-  },
-  {
-    tableName: "users",
-    timestamps: false
-  }
-);
+const User = defineUserModel(sequelize);
 
 const initPromise = (async () => {
   await sequelize.authenticate();
 
-  await sequelize.query(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      nome TEXT,
-      email TEXT,
-      saldo REAL DEFAULT 0,
-      cpf TEXT,
-      data_nascimento TEXT,
-      celular TEXT,
-      senha_hash TEXT,
-      aceitou_termos INTEGER DEFAULT 0,
-      criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
-      canal_verificacao TEXT DEFAULT 'email',
-      codigo_verificacao TEXT,
-      codigo_expira_em TEXT,
-      conta_verificada INTEGER DEFAULT 0,
-      conta_liberada INTEGER DEFAULT 0,
-      reset_codigo TEXT,
-      reset_expira_em TEXT
-    )
-  `);
+  await createUsersTable(sequelize);
 
   const columns = await sequelize.query("PRAGMA table_info(users)", {
     type: QueryTypes.SELECT
