@@ -42,7 +42,14 @@ export default function defineUserModel(sequelize) {
         defaultValue: 0
       },
       reset_codigo: DataTypes.TEXT,
-      reset_expira_em: DataTypes.TEXT
+      reset_expira_em: DataTypes.TEXT,
+      two_factor_enabled: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0
+      },
+      two_factor_destination: DataTypes.TEXT,
+      two_factor_code: DataTypes.TEXT,
+      two_factor_expires_at: DataTypes.TEXT
     },
     {
       tableName: "users",

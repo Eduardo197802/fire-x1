@@ -1,0 +1,275 @@
+.page {
+  min-height: 100vh;
+  padding: 24px;
+  display: grid;
+  place-items: center;
+}
+
+.card {
+  width: min(760px, 100%);
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  padding: 28px;
+  background: var(--panel);
+  backdrop-filter: blur(18px);
+  box-shadow: var(--shadow);
+}
+
+.cardWide {
+  width: min(1320px, 100%);
+}
+
+.kicker {
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 14px;
+  color: var(--accent-soft);
+}
+
+.card h1 {
+  margin: 0;
+  font-family: var(--font-display), sans-serif;
+  font-size: 34px;
+}
+
+.description {
+  margin: 14px 0 0;
+  max-width: 60ch;
+  line-height: 1.7;
+  color: var(--muted);
+}
+
+.infoMessage,
+.errorMessage {
+  margin: 18px 0 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.errorMessage {
+  color: #ffb2b2;
+  border-color: rgba(255, 115, 115, 0.3);
+}
+
+.successMessage {
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(72, 213, 151, 0.26);
+  color: #d8ffef;
+  background: rgba(72, 213, 151, 0.1);
+}
+
+.profileLayout {
+  margin-top: 18px;
+}
+
+.tabRow {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 10px;
+}
+
+.tabButton {
+  min-height: 40px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+  padding: 0 8px;
+  cursor: pointer;
+}
+
+.tabButtonActive {
+  color: #fff2e3;
+  border-bottom: 2px solid var(--accent);
+}
+
+.profileForm {
+  margin-top: 18px;
+}
+
+.tabPanelForm {
+  margin-top: 18px;
+  display: grid;
+  gap: 12px;
+  max-width: 640px;
+}
+
+.tabHelper {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.profileGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fieldGroup span {
+  font-size: 13px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.fieldGroup input {
+  min-height: 46px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  padding: 0 12px;
+}
+
+.fieldSelect {
+  min-height: 46px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  padding: 0 12px;
+}
+
+.fieldGroup input:focus {
+  outline: 2px solid rgba(255, 106, 0, 0.26);
+  border-color: rgba(255, 106, 0, 0.44);
+}
+
+.fieldSelect:focus {
+  outline: 2px solid rgba(255, 106, 0, 0.26);
+  border-color: rgba(255, 106, 0, 0.44);
+}
+
+.fieldGroupWide {
+  grid-column: span 3;
+}
+
+.checkboxRow {
+  margin-top: 14px;
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+  color: var(--text);
+}
+
+.actionsRow {
+  margin-top: 16px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.metaGrid {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.metaItem {
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.metaItem p {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.metaItem strong {
+  color: var(--text);
+  font-size: 16px;
+}
+
+.actions {
+  margin-top: 24px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.primaryButton,
+.secondaryLink {
+  min-height: 46px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.primaryButton {
+  color: #180c02;
+  background: linear-gradient(135deg, #ffd1a5 0%, var(--accent) 100%);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.primaryButton:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.secondaryLink {
+  border-color: var(--line-strong);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text);
+}
+
+@media (max-width: 1180px) {
+  .profileGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .fieldGroupWide {
+    grid-column: span 2;
+  }
+
+  .metaGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .page {
+    padding: 14px;
+  }
+
+  .card {
+    padding: 22px;
+  }
+
+  .card h1 {
+    font-size: 28px;
+  }
+
+  .profileGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .fieldGroupWide {
+    grid-column: auto;
+  }
+
+  .metaGrid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -75,6 +75,23 @@ export async function up(queryInterface, Sequelize) {
     reset_expira_em: {
       type: Sequelize.TEXT,
       allowNull: true
+    },
+    two_factor_enabled: {
+      type: Sequelize.INTEGER,
+      allowNull: true,
+      defaultValue: 0
+    },
+    two_factor_destination: {
+      type: Sequelize.TEXT,
+      allowNull: true
+    },
+    two_factor_code: {
+      type: Sequelize.TEXT,
+      allowNull: true
+    },
+    two_factor_expires_at: {
+      type: Sequelize.TEXT,
+      allowNull: true
     }
   });
 }

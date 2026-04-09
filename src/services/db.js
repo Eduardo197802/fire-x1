@@ -21,7 +21,11 @@ const requiredColumns = [
   { name: "conta_verificada", definition: "conta_verificada INTEGER DEFAULT 0" },
   { name: "conta_liberada", definition: "conta_liberada INTEGER DEFAULT 0" },
   { name: "reset_codigo", definition: "reset_codigo TEXT" },
-  { name: "reset_expira_em", definition: "reset_expira_em TEXT" }
+  { name: "reset_expira_em", definition: "reset_expira_em TEXT" },
+  { name: "two_factor_enabled", definition: "two_factor_enabled INTEGER DEFAULT 0" },
+  { name: "two_factor_destination", definition: "two_factor_destination TEXT" },
+  { name: "two_factor_code", definition: "two_factor_code TEXT" },
+  { name: "two_factor_expires_at", definition: "two_factor_expires_at TEXT" }
 ];
 
 const User = defineUserModel(sequelize);

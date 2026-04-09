@@ -1,11 +1,12 @@
 import bcrypt from "bcryptjs";
-import { Op } from "sequelize";
+import { Op, QueryTypes } from "sequelize";
 import { NextResponse } from "next/server";
 import { init, User } from "../../../../services/db";
 import {
   sendBetNotificationEmail,
   sendPasswordRecoveryEmail,
-  sendRegistrationConfirmationEmail
+  sendRegistrationConfirmationEmail,
+  sendTwoFactorVerificationEmail
 } from "../../../../services/email";
 
 export const runtime = "nodejs";
@@ -593,6 +594,229 @@ const postRecuperarSenhaRedefinir = async (body) => {
   }
 };
 
+const postAlterarSenha = async (body) => {
+  const userId = Number(body.userId);
+  const senhaAtual = String(body.senhaAtual || "");
+  const novaSenha = String(body.novaSenha || "");
+
+  if (!userId) {
+    return json({ error: "Usuário inválido." }, 400);
+  }
+
+  if (!senhaAtual || !novaSenha) {
+    return json({ error: "Informe senha atual e nova senha." }, 400);
+  }
+
+  if (novaSenha.length < 8) {
+    return json({ error: "A nova senha deve ter no mínimo 8 caracteres." }, 400);
+  }
+
+  try {
+    const user = await User.findByPk(userId, {
+      attributes: ["id", "senha_hash"],
+      raw: true
+    });
+
+    if (!user) {
+      return json({ error: "Conta não encontrada." }, 404);
+    }
+
+    if (!bcrypt.compareSync(senhaAtual, user.senha_hash)) {
+      return json({ error: "A senha atual está incorreta." }, 401);
+    }
+
+    const senhaHash = bcrypt.hashSync(novaSenha, 10);
+
+    await User.update(
+      {
+        senha_hash: senhaHash
+      },
+      { where: { id: userId } }
+    );
+
+    return json({ success: true, message: "Senha atualizada com sucesso." });
+  } catch {
+    return json({ error: "Erro ao atualizar senha." }, 500);
+  }
+};
+
+const postSegurancaAcesso = async (body) => {
+  const userId = Number(body.userId);
+  const canalVerificacao = String(body.canalVerificacao || "email").trim().toLowerCase();
+
+  if (!userId) {
+    return json({ error: "Usuário inválido." }, 400);
+  }
+
+  if (canalVerificacao !== "email") {
+    return json({ error: "No momento, o canal de segurança disponível é e-mail." }, 400);
+  }
+
+  try {
+    const user = await User.findByPk(userId, {
+      attributes: ["id"],
+      raw: true
+    });
+
+    if (!user) {
+      return json({ error: "Conta não encontrada." }, 404);
+    }
+
+    await User.update(
+      {
+        canal_verificacao: canalVerificacao
+      },
+      { where: { id: userId } }
+    );
+
+    return json({ success: true, message: "Configurações de segurança atualizadas." });
+  } catch {
+    return json({ error: "Erro ao atualizar segurança de acesso." }, 500);
+  }
+};
+
+const postTwoFactorCadastrar = async (body) => {
+  const userId = Number(body.userId);
+  const destination = String(body.destination || "").trim().toLowerCase();
+
+  if (!userId) {
+    return json({ error: "Usuário inválido." }, 400);
+  }
+
+  if (!isValidEmail(destination)) {
+    return json({ error: "Informe um e-mail válido para verificação em 2 etapas." }, 400);
+  }
+
+  try {
+    const user = await User.findByPk(userId, {
+      attributes: ["id"],
+      raw: true
+    });
+
+    if (!user) {
+      return json({ error: "Conta não encontrada." }, 404);
+    }
+
+    const verificationCode = generateVerificationCode();
+    const verificationExpiry = getExpirationDate();
+
+    await User.update(
+      {
+        two_factor_enabled: 0,
+        two_factor_destination: destination,
+        two_factor_code: verificationCode,
+        two_factor_expires_at: verificationExpiry
+      },
+      { where: { id: userId } }
+    );
+
+    try {
+      await sendTwoFactorVerificationEmail({
+        to: destination,
+        code: verificationCode,
+        expiresInMinutes: CODE_TTL_MINUTES
+      });
+    } catch (emailError) {
+      console.error("Erro ao enviar e-mail de 2 etapas:", emailError.message);
+      return json({ error: "Não foi possível enviar o código de 2 etapas por e-mail." }, 502);
+    }
+
+    return json({
+      success: true,
+      message: "Código enviado para cadastrar a verificação em 2 etapas.",
+      destination,
+      previewCode: previewCode(verificationCode)
+    });
+  } catch {
+    return json({ error: "Erro ao cadastrar verificação em 2 etapas." }, 500);
+  }
+};
+
+const postTwoFactorAtivar = async (body) => {
+  const userId = Number(body.userId);
+  const code = String(body.code || "").replace(/\D/g, "");
+
+  if (!userId) {
+    return json({ error: "Usuário inválido." }, 400);
+  }
+
+  if (code.length !== 6) {
+    return json({ error: "Informe um código válido de 6 dígitos." }, 400);
+  }
+
+  try {
+    const user = await User.findByPk(userId, {
+      attributes: ["id", "two_factor_code", "two_factor_expires_at", "two_factor_destination"],
+      raw: true
+    });
+
+    if (!user) {
+      return json({ error: "Conta não encontrada." }, 404);
+    }
+
+    if (!user.two_factor_code || !user.two_factor_expires_at) {
+      return json({ error: "Nenhum cadastro de verificação em 2 etapas pendente." }, 400);
+    }
+
+    if (new Date(user.two_factor_expires_at) < new Date()) {
+      return json({ error: "Código de 2 etapas expirado. Solicite um novo cadastro." }, 400);
+    }
+
+    if (String(user.two_factor_code) !== code) {
+      return json({ error: "Código de 2 etapas inválido." }, 400);
+    }
+
+    await User.update(
+      {
+        two_factor_enabled: 1,
+        two_factor_code: null,
+        two_factor_expires_at: null
+      },
+      { where: { id: userId } }
+    );
+
+    return json({
+      success: true,
+      message: "Verificação em 2 etapas ativada com sucesso.",
+      destination: user.two_factor_destination
+    });
+  } catch {
+    return json({ error: "Erro ao ativar verificação em 2 etapas." }, 500);
+  }
+};
+
+const postTwoFactorDesativar = async (body) => {
+  const userId = Number(body.userId);
+
+  if (!userId) {
+    return json({ error: "Usuário inválido." }, 400);
+  }
+
+  try {
+    const user = await User.findByPk(userId, {
+      attributes: ["id"],
+      raw: true
+    });
+
+    if (!user) {
+      return json({ error: "Conta não encontrada." }, 404);
+    }
+
+    await User.update(
+      {
+        two_factor_enabled: 0,
+        two_factor_code: null,
+        two_factor_expires_at: null
+      },
+      { where: { id: userId } }
+    );
+
+    return json({ success: true, message: "Verificação em 2 etapas desativada." });
+  } catch {
+    return json({ error: "Erro ao desativar verificação em 2 etapas." }, 500);
+  }
+};
+
 const postNotificacoesAposta = async (body) => {
   const userId = Number(body.userId);
   const tipo = String(body.tipo || "Atualização de aposta").trim();
@@ -657,6 +881,54 @@ const getDashboard = async (userId) => {
     const now = new Date();
     const accountAgeDays = createdAt ? Math.max(0, Math.floor((now - createdAt) / (1000 * 60 * 60 * 24))) : 0;
 
+    const extrato = {
+      totalGanho: 0,
+      totalPerdido: 0,
+      jogosDisputados: 0,
+      vitorias: 0,
+      derrotas: 0,
+      maiorApostaGanha: 0,
+      maiorApostaPerdida: 0
+    };
+
+    try {
+      const disputas = await User.sequelize.query(
+        "SELECT valor_aposta, resultado, premio FROM disputas WHERE user_id = :userId",
+        {
+          replacements: { userId },
+          type: QueryTypes.SELECT
+        }
+      );
+
+      for (const disputa of disputas) {
+        const valorAposta = Number(disputa.valor_aposta || 0);
+        const premio = Number(disputa.premio || 0);
+        const resultado = String(disputa.resultado || "").toLowerCase();
+
+        extrato.jogosDisputados += 1;
+
+        if (resultado === "ganhou") {
+          extrato.vitorias += 1;
+          extrato.totalGanho += premio;
+          extrato.maiorApostaGanha = Math.max(extrato.maiorApostaGanha, premio);
+        } else {
+          extrato.derrotas += 1;
+          extrato.totalPerdido += valorAposta;
+          extrato.maiorApostaPerdida = Math.max(extrato.maiorApostaPerdida, valorAposta);
+        }
+      }
+
+      extrato.totalGanho = Number(extrato.totalGanho.toFixed(2));
+      extrato.totalPerdido = Number(extrato.totalPerdido.toFixed(2));
+      extrato.maiorApostaGanha = Number(extrato.maiorApostaGanha.toFixed(2));
+      extrato.maiorApostaPerdida = Number(extrato.maiorApostaPerdida.toFixed(2));
+    } catch {
+      // A dashboard continua funcional mesmo se a tabela de disputas ainda nao existir.
+    }
+
+    const resultadoLiquido = Number(extrato.totalGanho) - Number(extrato.totalPerdido);
+    const taxaVitoria = extrato.jogosDisputados > 0 ? (Number(extrato.vitorias) / Number(extrato.jogosDisputados)) * 100 : 0;
+
     return json({
       user: {
         id: user.id,
@@ -672,7 +944,12 @@ const getDashboard = async (userId) => {
         saldoDisponivel: Number(user.saldo || 0),
         contaVerificada: Boolean(user.conta_verificada),
         contaLiberada: Boolean(user.conta_liberada),
-        diasDeConta: accountAgeDays
+        diasDeConta: accountAgeDays,
+        extrato: {
+          ...extrato,
+          resultadoLiquido,
+          taxaVitoria
+        }
       },
       activity: [
         {
@@ -706,7 +983,18 @@ const getStatus = async (userId) => {
 
   try {
     const user = await User.findByPk(userId, {
-      attributes: ["id", "canal_verificacao", "conta_verificada", "conta_liberada", "email", "celular"],
+      attributes: [
+        "id",
+        "canal_verificacao",
+        "conta_verificada",
+        "conta_liberada",
+        "email",
+        "celular",
+        "two_factor_enabled",
+        "two_factor_destination",
+        "two_factor_code",
+        "two_factor_expires_at"
+      ],
       raw: true
     });
 
@@ -714,15 +1002,78 @@ const getStatus = async (userId) => {
       return json({ error: "Conta não encontrada." }, 404);
     }
 
+    const twoFactorPending = Boolean(
+      user.two_factor_code && user.two_factor_expires_at && new Date(user.two_factor_expires_at) > new Date()
+    );
+
     return json({
       id: user.id,
       verificationChannel: user.canal_verificacao,
       maskedDestination: getMaskedDestination(user.canal_verificacao, user.email, user.celular),
       contaVerificada: Boolean(user.conta_verificada),
-      contaLiberada: Boolean(user.conta_liberada)
+      contaLiberada: Boolean(user.conta_liberada),
+      twoFactorEnabled: Boolean(user.two_factor_enabled),
+      twoFactorDestination: user.two_factor_destination,
+      twoFactorPending
     });
   } catch {
     return json({ error: "Erro ao consultar o status da conta." }, 500);
+  }
+};
+
+const getPerfil = async (userId) => {
+  if (!userId) {
+    return json({ error: "Usuário inválido." }, 400);
+  }
+
+  try {
+    const user = await User.findByPk(userId, {
+      attributes: [
+        "id",
+        "nome",
+        "email",
+        "cpf",
+        "data_nascimento",
+        "celular",
+        "criado_em",
+        "canal_verificacao",
+        "conta_verificada",
+        "conta_liberada",
+        "aceitou_termos",
+        "two_factor_enabled",
+        "two_factor_destination",
+        "two_factor_code",
+        "two_factor_expires_at"
+      ],
+      raw: true
+    });
+
+    if (!user) {
+      return json({ error: "Conta não encontrada." }, 404);
+    }
+
+    const twoFactorPending = Boolean(
+      user.two_factor_code && user.two_factor_expires_at && new Date(user.two_factor_expires_at) > new Date()
+    );
+
+    return json({
+      id: user.id,
+      nome: user.nome,
+      email: user.email,
+      cpf: user.cpf,
+      dataNascimento: user.data_nascimento,
+      celular: user.celular,
+      criadoEm: user.criado_em,
+      canalVerificacao: user.canal_verificacao,
+      contaVerificada: Boolean(user.conta_verificada),
+      contaLiberada: Boolean(user.conta_liberada),
+      aceitouTermos: Boolean(user.aceitou_termos),
+      twoFactorEnabled: Boolean(user.two_factor_enabled),
+      twoFactorDestination: user.two_factor_destination,
+      twoFactorPending
+    });
+  } catch {
+    return json({ error: "Erro ao consultar os dados de perfil." }, 500);
   }
 };
 
@@ -756,6 +1107,26 @@ export async function POST(request, { params }) {
     return postRecuperarSenhaRedefinir(body);
   }
 
+  if (path === "alterar-senha") {
+    return postAlterarSenha(body);
+  }
+
+  if (path === "seguranca/acesso") {
+    return postSegurancaAcesso(body);
+  }
+
+  if (path === "2fa/cadastrar") {
+    return postTwoFactorCadastrar(body);
+  }
+
+  if (path === "2fa/ativar") {
+    return postTwoFactorAtivar(body);
+  }
+
+  if (path === "2fa/desativar") {
+    return postTwoFactorDesativar(body);
+  }
+
   if (path === "notificacoes/aposta") {
     return postNotificacoesAposta(body);
   }
@@ -776,6 +1147,11 @@ export async function GET(_request, { params }) {
   if (path.startsWith("status/")) {
     const userId = Number(path.split("/")[1]);
     return getStatus(userId);
+  }
+
+  if (path.startsWith("perfil/")) {
+    const userId = Number(path.split("/")[1]);
+    return getPerfil(userId);
   }
 
   return json({ error: "Rota não encontrada." }, 404);

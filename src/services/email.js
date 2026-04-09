@@ -84,8 +84,25 @@ const sendBetNotificationEmail = async ({ to, title, message }) => {
   });
 };
 
+const sendTwoFactorVerificationEmail = async ({ to, code, expiresInMinutes }) => {
+  await sendMail({
+    to,
+    subject: "Fire X1 Play - Verificação em 2 etapas",
+    text: `Seu código para ativar a verificação em 2 etapas é ${code}. Ele expira em ${expiresInMinutes} minutos.`,
+    html: `
+      <div style="font-family: Arial, sans-serif; color: #222; line-height: 1.5;">
+        <h2 style="margin: 0 0 12px; color: #ff6a00;">Verificação em 2 etapas</h2>
+        <p>Use o código abaixo para ativar a proteção adicional da sua conta.</p>
+        <p style="font-size: 28px; letter-spacing: 6px; font-weight: 700; color: #111;">${code}</p>
+        <p>Este código expira em <strong>${expiresInMinutes} minutos</strong>.</p>
+      </div>
+    `
+  });
+};
+
 module.exports = {
   sendRegistrationConfirmationEmail,
   sendPasswordRecoveryEmail,
-  sendBetNotificationEmail
+  sendBetNotificationEmail,
+  sendTwoFactorVerificationEmail
 };
