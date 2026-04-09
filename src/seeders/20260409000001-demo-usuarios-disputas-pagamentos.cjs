@@ -67,37 +67,21 @@ const disputasBase = [
 module.exports = {
   async up(queryInterface, Sequelize) {
     const passwordHash = bcrypt.hashSync("Seed@123", 10);
-
-    await queryInterface.sequelize.query(`
-      CREATE TABLE IF NOT EXISTS disputas (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL,
-        adversario_nome TEXT,
-        jogo TEXT,
-        valor_aposta FLOAT DEFAULT 0,
-        resultado TEXT,
-        premio FLOAT DEFAULT 0,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        origem TEXT,
-        FOREIGN KEY(user_id) REFERENCES users(id)
-      )
-    `);
-
-    await queryInterface.sequelize.query(`
-      CREATE TABLE IF NOT EXISTS pagamentos (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL,
-        disputa_id INTEGER,
-        tipo TEXT,
-        valor FLOAT DEFAULT 0,
-        status TEXT,
-        metodo TEXT,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        origem TEXT,
-        FOREIGN KEY(user_id) REFERENCES users(id),
-        FOREIGN KEY(disputa_id) REFERENCES disputas(id)
-      )
-    `);
+    const DisputaModel = queryInterface.sequelize.define(
+      "SeedDisputaDemo",
+      {
+        id: { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
+        user_id: Sequelize.INTEGER,
+        adversario_nome: Sequelize.TEXT,
+        jogo: Sequelize.TEXT,
+        valor_aposta: Sequelize.FLOAT,
+        resultado: Sequelize.TEXT,
+        premio: Sequelize.FLOAT,
+        created_at: Sequelize.TEXT,
+        origem: Sequelize.TEXT
+      },
+      { tableName: "disputas", timestamps: false }
+    );
 
     const transaction = await queryInterface.sequelize.transaction();
 
@@ -106,16 +90,16 @@ module.exports = {
       await queryInterface.bulkDelete("disputas", { origem: "seed_cli" }, { transaction });
 
       for (const user of usersSeed) {
-        const existing = await queryInterface.sequelize.query(
-          "SELECT id FROM users WHERE email = :email LIMIT 1",
+        const existingId = await queryInterface.rawSelect(
+          "users",
           {
-            replacements: { email: user.email },
-            type: Sequelize.QueryTypes.SELECT,
+            where: { email: user.email },
             transaction
-          }
+          },
+          ["id"]
         );
 
-        if (existing.length === 0) {
+        if (!existingId) {
           await queryInterface.bulkInsert(
             "users",
             [
@@ -143,13 +127,22 @@ module.exports = {
         }
       }
 
-      const seededUsers = await queryInterface.sequelize.query(
-        "SELECT id, email FROM users WHERE email LIKE '%@firex1.test'",
-        {
-          type: Sequelize.QueryTypes.SELECT,
-          transaction
+      const seededUsers = [];
+
+      for (const user of usersSeed) {
+        const userId = await queryInterface.rawSelect(
+          "users",
+          {
+            where: { email: user.email },
+            transaction
+          },
+          ["id"]
+        );
+
+        if (userId) {
+          seededUsers.push({ id: userId, email: user.email });
         }
-      );
+      }
 
       const disputasRows = [];
       const pagamentosRows = [];
@@ -171,19 +164,14 @@ module.exports = {
         }
       }
 
-      if (disputasRows.length > 0) {
-        await queryInterface.bulkInsert("disputas", disputasRows, { transaction });
+      const createdDisputas = [];
+
+      for (const disputa of disputasRows) {
+        const createdDisputa = await DisputaModel.create(disputa, { transaction });
+        createdDisputas.push(createdDisputa.get({ plain: true }));
       }
 
-      const seededDisputas = await queryInterface.sequelize.query(
-        "SELECT id, user_id, valor_aposta, resultado, premio FROM disputas WHERE origem = 'seed_cli'",
-        {
-          type: Sequelize.QueryTypes.SELECT,
-          transaction
-        }
-      );
-
-      for (const disputa of seededDisputas) {
+      for (const disputa of createdDisputas) {
         pagamentosRows.push({
           user_id: disputa.user_id,
           disputa_id: disputa.id,
@@ -213,10 +201,11 @@ module.exports = {
     try {
       await queryInterface.bulkDelete("pagamentos", { origem: "seed_cli" }, { transaction });
       await queryInterface.bulkDelete("disputas", { origem: "seed_cli" }, { transaction });
-      await queryInterface.sequelize.query(
-        "DELETE FROM users WHERE email LIKE '%@firex1.test'",
-        { transaction }
-      );
+
+      for (const user of usersSeed) {
+        await queryInterface.bulkDelete("users", { email: user.email }, { transaction });
+      }
+
       await transaction.commit();
     } catch (error) {
       await transaction.rollback();

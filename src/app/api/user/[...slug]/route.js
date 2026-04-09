@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
-import { Op, QueryTypes } from "sequelize";
+import { Op } from "sequelize";
 import { NextResponse } from "next/server";
-import { init, User } from "../../../../services/db";
+import { init, User, Disputa } from "../../../../services/db";
 import {
   sendBetNotificationEmail,
   sendPasswordRecoveryEmail,
@@ -892,13 +892,11 @@ const getDashboard = async (userId) => {
     };
 
     try {
-      const disputas = await User.sequelize.query(
-        "SELECT valor_aposta, resultado, premio FROM disputas WHERE user_id = :userId",
-        {
-          replacements: { userId },
-          type: QueryTypes.SELECT
-        }
-      );
+      const disputas = await Disputa.findAll({
+        where: { user_id: userId },
+        attributes: ["valor_aposta", "resultado", "premio"],
+        raw: true
+      });
 
       for (const disputa of disputas) {
         const valorAposta = Number(disputa.valor_aposta || 0);

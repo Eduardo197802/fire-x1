@@ -1,6 +1,10 @@
-import { QueryTypes, Sequelize } from "sequelize";
+import { Sequelize } from "sequelize";
 import { up as createUsersTable } from "../migrations/001-create-users-table";
+import { up as createDisputasTable } from "../migrations/002-create-disputas-table";
+import { up as createPagamentosTable } from "../migrations/003-create-pagamentos-table";
 import defineUserModel from "../models/User";
+import defineDisputaModel from "../models/Disputa";
+import definePagamentoModel from "../models/Pagamento";
 
 const sequelize = new Sequelize({
   dialect: "sqlite",
@@ -8,27 +12,38 @@ const sequelize = new Sequelize({
   logging: false
 });
 
-const requiredColumns = [
-  { name: "cpf", definition: "cpf TEXT" },
-  { name: "data_nascimento", definition: "data_nascimento TEXT" },
-  { name: "celular", definition: "celular TEXT" },
-  { name: "senha_hash", definition: "senha_hash TEXT" },
-  { name: "aceitou_termos", definition: "aceitou_termos INTEGER DEFAULT 0" },
-  { name: "criado_em", definition: "criado_em TEXT DEFAULT CURRENT_TIMESTAMP" },
-  { name: "canal_verificacao", definition: "canal_verificacao TEXT DEFAULT 'email'" },
-  { name: "codigo_verificacao", definition: "codigo_verificacao TEXT" },
-  { name: "codigo_expira_em", definition: "codigo_expira_em TEXT" },
-  { name: "conta_verificada", definition: "conta_verificada INTEGER DEFAULT 0" },
-  { name: "conta_liberada", definition: "conta_liberada INTEGER DEFAULT 0" },
-  { name: "reset_codigo", definition: "reset_codigo TEXT" },
-  { name: "reset_expira_em", definition: "reset_expira_em TEXT" },
-  { name: "two_factor_enabled", definition: "two_factor_enabled INTEGER DEFAULT 0" },
-  { name: "two_factor_destination", definition: "two_factor_destination TEXT" },
-  { name: "two_factor_code", definition: "two_factor_code TEXT" },
-  { name: "two_factor_expires_at", definition: "two_factor_expires_at TEXT" }
-];
+const requiredUserColumns = {
+  cpf: { type: Sequelize.TEXT, allowNull: true },
+  data_nascimento: { type: Sequelize.TEXT, allowNull: true },
+  celular: { type: Sequelize.TEXT, allowNull: true },
+  senha_hash: { type: Sequelize.TEXT, allowNull: true },
+  aceitou_termos: { type: Sequelize.INTEGER, allowNull: true, defaultValue: 0 },
+  criado_em: { type: Sequelize.TEXT, allowNull: true, defaultValue: Sequelize.literal("CURRENT_TIMESTAMP") },
+  canal_verificacao: { type: Sequelize.TEXT, allowNull: true, defaultValue: "email" },
+  codigo_verificacao: { type: Sequelize.TEXT, allowNull: true },
+  codigo_expira_em: { type: Sequelize.TEXT, allowNull: true },
+  conta_verificada: { type: Sequelize.INTEGER, allowNull: true, defaultValue: 0 },
+  conta_liberada: { type: Sequelize.INTEGER, allowNull: true, defaultValue: 0 },
+  reset_codigo: { type: Sequelize.TEXT, allowNull: true },
+  reset_expira_em: { type: Sequelize.TEXT, allowNull: true },
+  two_factor_enabled: { type: Sequelize.INTEGER, allowNull: true, defaultValue: 0 },
+  two_factor_destination: { type: Sequelize.TEXT, allowNull: true },
+  two_factor_code: { type: Sequelize.TEXT, allowNull: true },
+  two_factor_expires_at: { type: Sequelize.TEXT, allowNull: true }
+};
 
 const User = defineUserModel(sequelize);
+const Disputa = defineDisputaModel(sequelize);
+const Pagamento = definePagamentoModel(sequelize);
+
+User.hasMany(Disputa, { foreignKey: "user_id", as: "disputas" });
+Disputa.belongsTo(User, { foreignKey: "user_id", as: "user" });
+
+User.hasMany(Pagamento, { foreignKey: "user_id", as: "pagamentos" });
+Pagamento.belongsTo(User, { foreignKey: "user_id", as: "user" });
+
+Disputa.hasMany(Pagamento, { foreignKey: "disputa_id", as: "pagamentos" });
+Pagamento.belongsTo(Disputa, { foreignKey: "disputa_id", as: "disputa" });
 
 const initPromise = (async () => {
   await sequelize.authenticate();
@@ -43,82 +58,30 @@ const initPromise = (async () => {
     await createUsersTable(queryInterface, Sequelize);
   }
 
-  const columns = await sequelize.query("PRAGMA table_info(users)", {
-    type: QueryTypes.SELECT
-  });
+  if (!normalizedTableNames.includes("disputas")) {
+    await createDisputasTable(queryInterface, Sequelize);
+  }
 
-  const existingColumns = new Set(columns.map((column) => column.name));
+  if (!normalizedTableNames.includes("pagamentos")) {
+    await createPagamentosTable(queryInterface, Sequelize);
+  }
 
-  for (const column of requiredColumns) {
-    if (!existingColumns.has(column.name)) {
-      await sequelize.query(`ALTER TABLE users ADD COLUMN ${column.definition}`);
+  const usersColumns = await queryInterface.describeTable("users");
+
+  for (const [columnName, definition] of Object.entries(requiredUserColumns)) {
+    if (!usersColumns[columnName]) {
+      await queryInterface.addColumn("users", columnName, definition);
     }
   }
 })();
 
-const withCallback = (promise, callback, context = {}) => {
-  promise
-    .then((result) => {
-      if (typeof callback === "function") {
-        callback.call(context, null, result);
-      }
-    })
-    .catch((error) => {
-      if (typeof callback === "function") {
-        callback.call(context, error);
-      }
-    });
-};
-
 const db = {
   sequelize,
   User,
-  init: initPromise,
-  get(sql, params = [], callback) {
-    withCallback(
-      (async () => {
-        await initPromise;
-        const rows = await sequelize.query(sql, {
-          replacements: params,
-          type: QueryTypes.SELECT
-        });
-        return rows[0];
-      })(),
-      callback
-    );
-  },
-  all(sql, params = [], callback) {
-    withCallback(
-      (async () => {
-        await initPromise;
-        return sequelize.query(sql, {
-          replacements: params,
-          type: QueryTypes.SELECT
-        });
-      })(),
-      callback
-    );
-  },
-  run(sql, params = [], callback) {
-    const context = { lastID: undefined, changes: 0 };
-
-    withCallback(
-      (async () => {
-        await initPromise;
-        const [result, metadata] = await sequelize.query(sql, {
-          replacements: params
-        });
-
-        context.lastID = metadata?.lastID ?? result?.lastID;
-        context.changes = metadata?.changes ?? 0;
-
-        return undefined;
-      })(),
-      callback,
-      context
-    );
-  }
+  Disputa,
+  Pagamento,
+  init: initPromise
 };
 
 export default db;
-export { sequelize, User, initPromise as init };
+export { sequelize, User, Disputa, Pagamento, initPromise as init };
