@@ -6,10 +6,31 @@ import defineUserModel from "../models/User";
 import defineDisputaModel from "../models/Disputa";
 import definePagamentoModel from "../models/Pagamento";
 
+function toNumber(value, fallback) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function toBoolean(value) {
+  return String(value).toLowerCase() === "true";
+}
+
 const sequelize = new Sequelize({
-  dialect: "sqlite",
-  storage: "./database.db",
-  logging: false
+  dialect: process.env.DB_DIALECT || "postgres",
+  host: process.env.DB_HOST || "127.0.0.1",
+  port: toNumber(process.env.DB_PORT, 5432),
+  database: process.env.DB_NAME || "firex1_dev",
+  username: process.env.DB_USER || "postgres",
+  password: process.env.DB_PASSWORD || "postgres",
+  logging: false,
+  dialectOptions: toBoolean(process.env.DB_SSL)
+    ? {
+        ssl: {
+          require: true,
+          rejectUnauthorized: false,
+        },
+      }
+    : {},
 });
 
 const requiredUserColumns = {
@@ -45,8 +66,14 @@ Pagamento.belongsTo(User, { foreignKey: "user_id", as: "user" });
 Disputa.hasMany(Pagamento, { foreignKey: "disputa_id", as: "pagamentos" });
 Pagamento.belongsTo(Disputa, { foreignKey: "disputa_id", as: "disputa" });
 
+const shouldBootstrapSchema = toBoolean(process.env.DB_BOOTSTRAP_SCHEMA);
+
 const initPromise = (async () => {
   await sequelize.authenticate();
+
+  if (!shouldBootstrapSchema) {
+    return;
+  }
 
   const queryInterface = sequelize.getQueryInterface();
   const tableNames = await queryInterface.showAllTables();
