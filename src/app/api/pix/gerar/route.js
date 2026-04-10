@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { init, User } from "../../../../services/db";
+import { init, User, Pagamento } from "../../../../services/db";
+import { createPixDepositCharge } from "../../../../services/pix";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,9 +15,14 @@ export async function POST(request) {
   }
 
   const userId = Number(body.userId);
+  const valor = Number(body.valor);
 
   if (!userId) {
     return NextResponse.json({ error: "Usuário inválido para gerar Pix." }, { status: 400 });
+  }
+
+  if (!Number.isFinite(valor) || valor <= 0) {
+    return NextResponse.json({ error: "Valor inválido para gerar Pix." }, { status: 400 });
   }
 
   try {
@@ -38,10 +44,32 @@ export async function POST(request) {
       );
     }
 
-    return NextResponse.json({
-      imagem: "https://via.placeholder.com/200"
+    const charge = await createPixDepositCharge({ valor, userId });
+
+    await Pagamento.create({
+      user_id: userId,
+      tipo: "deposito",
+      valor,
+      status: "pendente",
+      metodo: "pix",
+      origem: "efi",
+      txid: charge.txid,
+      payload_br_code: charge.brCode,
+      qr_code_imagem: charge.qrCodeImage,
+      descricao: `Deposito PIX do usuario ${userId}`,
     });
-  } catch {
-    return NextResponse.json({ error: "Erro ao validar a conta para o Pix." }, { status: 500 });
+
+    return NextResponse.json({
+      txid: charge.txid,
+      brCode: charge.brCode,
+      imagem: charge.qrCodeImage,
+      qrCodeImagem: charge.qrCodeImage,
+      status: "pendente",
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error?.message || "Erro ao validar a conta para o Pix." },
+      { status: 500 }
+    );
   }
 }

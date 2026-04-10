@@ -18,6 +18,7 @@ export default function defineUserModel(sequelize) {
       cpf: DataTypes.TEXT,
       data_nascimento: DataTypes.TEXT,
       celular: DataTypes.TEXT,
+      chave_pix: DataTypes.TEXT,
       senha_hash: DataTypes.TEXT,
       aceitou_termos: {
         type: DataTypes.INTEGER,

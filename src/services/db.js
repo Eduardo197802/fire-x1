@@ -37,6 +37,7 @@ const requiredUserColumns = {
   cpf: { type: Sequelize.TEXT, allowNull: true },
   data_nascimento: { type: Sequelize.TEXT, allowNull: true },
   celular: { type: Sequelize.TEXT, allowNull: true },
+  chave_pix: { type: Sequelize.TEXT, allowNull: true },
   senha_hash: { type: Sequelize.TEXT, allowNull: true },
   aceitou_termos: { type: Sequelize.INTEGER, allowNull: true, defaultValue: 0 },
   criado_em: { type: Sequelize.TEXT, allowNull: true, defaultValue: Sequelize.literal("CURRENT_TIMESTAMP") },
@@ -51,6 +52,17 @@ const requiredUserColumns = {
   two_factor_destination: { type: Sequelize.TEXT, allowNull: true },
   two_factor_code: { type: Sequelize.TEXT, allowNull: true },
   two_factor_expires_at: { type: Sequelize.TEXT, allowNull: true }
+};
+
+const requiredPagamentoColumns = {
+  txid: { type: Sequelize.TEXT, allowNull: true },
+  efi_end_to_end_id: { type: Sequelize.TEXT, allowNull: true },
+  chave_pix_destino: { type: Sequelize.TEXT, allowNull: true },
+  descricao: { type: Sequelize.TEXT, allowNull: true },
+  payload_br_code: { type: Sequelize.TEXT, allowNull: true },
+  qr_code_imagem: { type: Sequelize.TEXT, allowNull: true },
+  webhook_recebido_em: { type: Sequelize.TEXT, allowNull: true },
+  processado_em: { type: Sequelize.TEXT, allowNull: true }
 };
 
 const User = defineUserModel(sequelize);
@@ -98,6 +110,14 @@ const initPromise = (async () => {
   for (const [columnName, definition] of Object.entries(requiredUserColumns)) {
     if (!usersColumns[columnName]) {
       await queryInterface.addColumn("users", columnName, definition);
+    }
+  }
+
+  const pagamentosColumns = await queryInterface.describeTable("pagamentos");
+
+  for (const [columnName, definition] of Object.entries(requiredPagamentoColumns)) {
+    if (!pagamentosColumns[columnName]) {
+      await queryInterface.addColumn("pagamentos", columnName, definition);
     }
   }
 })();

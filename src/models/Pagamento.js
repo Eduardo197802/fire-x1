@@ -24,6 +24,14 @@ export default function definePagamentoModel(sequelize) {
       },
       status: DataTypes.TEXT,
       metodo: DataTypes.TEXT,
+      txid: DataTypes.TEXT,
+      efi_end_to_end_id: DataTypes.TEXT,
+      chave_pix_destino: DataTypes.TEXT,
+      descricao: DataTypes.TEXT,
+      payload_br_code: DataTypes.TEXT,
+      qr_code_imagem: DataTypes.TEXT,
+      webhook_recebido_em: DataTypes.TEXT,
+      processado_em: DataTypes.TEXT,
       created_at: {
         type: DataTypes.TEXT,
         defaultValue: Sequelize.literal("CURRENT_TIMESTAMP")
