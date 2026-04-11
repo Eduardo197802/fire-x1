@@ -1,0 +1,25 @@
+name: "Deploy to prod"
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+jobs:
+  deploy:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: setup SSH
+        run: |
+          mkdir -p ~/.ssh/
+          cd ~/.ssh/
+
+          echo "${{secrets.SSH_PRIVATE_KEY}}" > id_ed25519
+          chmod 600 id_ed25519
+
+          echo "${{vars.KNOWN_HOSTS}}" >> known_hosts
+          chmod 644 known_hosts
+
+
+      - name: deploy
+        run: |
+          ssh fire-x1@${{vars.HOSTNAME}} "gerenciador deploy"
