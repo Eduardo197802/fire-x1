@@ -21,3 +21,5 @@ Todas as mudanças relevantes deste projeto devem ser registradas neste arquivo.
 - Criado serviço de integração PIX em `src/services/pix.js`.
 - Evoluídos modelos e migrations para suporte PIX (`004-add-pix-columns-to-pagamentos.js` e `005-add-chave-pix-to-users.js`).
 - Testes da feature PIX adicionados e validados: `specs/features/pix/deposito.spec.js`, `specs/features/pix/webhook.spec.js` e `specs/features/pix/saque.spec.js`.
+- Concluida a Spec 003 em `specs/003-ajuste-data-nascimento-mobile/` com correcao visual do campo `Data de nascimento` no mobile.
+- Padronizado o input `type="date"` no modal de cadastro da home em `src/app/page.module.css`, alinhando dimensoes e comportamento com os demais campos.
