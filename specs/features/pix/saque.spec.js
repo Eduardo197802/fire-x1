@@ -1,5 +1,5 @@
 import { POST } from "@/app/api/pix/saque/route";
-import { makePostRequest, readJson } from "../../support/request-factory";
+import { makePostRequest, makePostRequestWithHeaders, readJson } from "../../support/request-factory";
 
 jest.mock("@/services/db", () => ({
   init: Promise.resolve(),
@@ -19,7 +19,18 @@ jest.mock("@/services/pix", () => ({
 }));
 
 describe("POST /api/pix/saque", () => {
-  const post = (body) => POST(makePostRequest("/api/pix/saque", body));
+  const createToken = (userId, expiresAt = Date.now() + 60_000) => {
+    const payload = `${userId}.${expiresAt}`;
+    const signature = require("crypto").createHmac("sha256", "firex1-dev-secret").update(payload).digest("base64url");
+    return `${payload}.${signature}`;
+  };
+
+  const post = (body, token) =>
+    POST(
+      makePostRequestWithHeaders("/api/pix/saque", body, {
+        Authorization: `Bearer ${token}`,
+      })
+    );
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -31,7 +42,7 @@ describe("POST /api/pix/saque", () => {
     Pagamento.findOne.mockResolvedValue(null);
     User.findByPk.mockResolvedValue({ id: 1, saldo: 10, conta_liberada: 1, chave_pix: "user@pix.com" });
 
-    const response = await post({ userId: 1, valor: 20, requestId: "REQ-1" });
+    const response = await post({ userId: 1, valor: 20, requestId: "REQ-1" }, createToken(1));
     const body = await readJson(response);
 
     expect(response.status).toBe(400);
@@ -43,7 +54,7 @@ describe("POST /api/pix/saque", () => {
 
     Pagamento.findOne.mockResolvedValue({ status: "concluido" });
 
-    const response = await post({ userId: 1, valor: 20, requestId: "REQ-EXISTE" });
+    const response = await post({ userId: 1, valor: 20, requestId: "REQ-EXISTE" }, createToken(1));
     const body = await readJson(response);
 
     expect(response.status).toBe(200);
@@ -66,7 +77,7 @@ describe("POST /api/pix/saque", () => {
     Pagamento.create.mockResolvedValue({ id: 99 });
     sendPixWithdraw.mockResolvedValue({ endToEndId: "E2E-SAQUE-1" });
 
-    const response = await post({ userId: 7, valor: 20, requestId: "REQ-SAQUE-1" });
+    const response = await post({ userId: 7, valor: 20, requestId: "REQ-SAQUE-1" }, createToken(7));
     const body = await readJson(response);
 
     expect(response.status).toBe(200);
@@ -87,5 +98,21 @@ describe("POST /api/pix/saque", () => {
       }),
       expect.any(Object)
     );
+  });
+
+  it("retorna 403 quando token e de outro usuario", async () => {
+    const response = await post({ userId: 7, valor: 20, requestId: "REQ-OUTRO" }, createToken(9));
+    const body = await readJson(response);
+
+    expect(response.status).toBe(403);
+    expect(body.error).toMatch(/acesso negado/i);
+  });
+
+  it("retorna 401 quando token nao e informado", async () => {
+    const response = await POST(makePostRequest("/api/pix/saque", { userId: 1, valor: 20, requestId: "REQ-NO-TOKEN" }));
+    const body = await readJson(response);
+
+    expect(response.status).toBe(401);
+    expect(body.error).toMatch(/sessão inválida|sessao invalida|expirada/i);
   });
 });

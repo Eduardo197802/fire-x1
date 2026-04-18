@@ -1,27 +1,87 @@
 import { NextResponse } from "next/server";
 import { init, Pagamento, User, sequelize } from "../../../../services/db";
+import { addMoney, isPositiveAmount, normalizeAmount } from "../../../../services/money";
+import { consumeRateLimit, getRequestClientIp } from "../../../../services/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function extractPixValue(pix, fallback) {
-  const direct = Number(pix?.valor);
+function validateWebhookAuth(request) {
+  const expectedToken =
+    process.env.EFI_PIX_WEBHOOK_TOKEN || process.env.PIX_WEBHOOK_TOKEN || "";
 
-  if (Number.isFinite(direct) && direct > 0) {
+  if (!expectedToken) {
+    if (process.env.NODE_ENV === "production") {
+      return {
+        ok: false,
+        status: 500,
+        error: "Configuração de segurança do webhook PIX ausente."
+      };
+    }
+
+    return { ok: true };
+  }
+
+  const tokenFromHeader =
+    request.headers.get("x-efi-webhook-token") ||
+    request.headers.get("x-pix-webhook-token") ||
+    request.headers.get("x-webhook-token") ||
+    "";
+
+  if (!tokenFromHeader || tokenFromHeader !== expectedToken) {
+    return {
+      ok: false,
+      status: 401,
+      error: "Webhook PIX não autorizado."
+    };
+  }
+
+  return { ok: true };
+}
+
+function extractPixValue(pix, fallback) {
+  const direct = normalizeAmount(pix?.valor);
+
+  if (isPositiveAmount(direct)) {
     return direct;
   }
 
-  const original = Number(pix?.valor?.original);
+  const original = normalizeAmount(pix?.valor?.original);
 
-  if (Number.isFinite(original) && original > 0) {
+  if (isPositiveAmount(original)) {
     return original;
   }
 
-  const safeFallback = Number(fallback);
-  return Number.isFinite(safeFallback) && safeFallback > 0 ? safeFallback : 0;
+  const safeFallback = normalizeAmount(fallback);
+  return isPositiveAmount(safeFallback) ? safeFallback : 0;
 }
 
 export async function POST(request) {
+  const auth = validateWebhookAuth(request);
+
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
+  const rateLimit = consumeRateLimit({
+    scope: "pix:webhook",
+    key: getRequestClientIp(request),
+    limit: 120,
+    windowMs: 60 * 1000
+  });
+
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: "Limite de eventos de webhook excedido temporariamente." },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(rateLimit.retryAfterSeconds)
+        }
+      }
+    );
+  }
+
   let body = {};
 
   try {
@@ -97,7 +157,7 @@ export async function POST(request) {
 
         const valorCredito = extractPixValue(pixEvent, lockedPagamento.valor);
 
-        if (valorCredito <= 0) {
+        if (!isPositiveAmount(valorCredito)) {
           await Pagamento.update(
             {
               status: "falha",
@@ -110,7 +170,7 @@ export async function POST(request) {
         }
 
         await User.update(
-          { saldo: Number(user.saldo || 0) + valorCredito },
+          { saldo: addMoney(user.saldo, valorCredito) },
           { where: { id: user.id }, transaction }
         );
 

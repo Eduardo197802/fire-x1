@@ -15,7 +15,7 @@ export async function up(queryInterface, Sequelize) {
       allowNull: true
     },
     saldo: {
-      type: Sequelize.FLOAT,
+      type: Sequelize.DECIMAL(14, 2),
       allowNull: true,
       defaultValue: 0
     },

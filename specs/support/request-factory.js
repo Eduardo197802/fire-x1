@@ -24,6 +24,13 @@ export const makePostRequest = (path, body = {}) =>
     body: JSON.stringify(body),
   });
 
+export const makePostRequestWithHeaders = (path, body = {}, headers = {}) =>
+  new NextRequest(`http://localhost${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...headers },
+    body: JSON.stringify(body),
+  });
+
 /**
  * Cria um NextRequest GET.
  * @param {string} path - Caminho da URL (ex: '/api/user/dashboard/1')
@@ -31,6 +38,12 @@ export const makePostRequest = (path, body = {}) =>
  */
 export const makeGetRequest = (path) =>
   new NextRequest(`http://localhost${path}`, { method: "GET" });
+
+export const makeGetRequestWithHeaders = (path, headers = {}) =>
+  new NextRequest(`http://localhost${path}`, {
+    method: "GET",
+    headers,
+  });
 
 /**
  * Cria o contexto de rota com params como Promise (Next.js 15+).

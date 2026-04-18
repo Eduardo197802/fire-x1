@@ -2,6 +2,14 @@ import bcrypt from "bcryptjs";
 import { Op } from "sequelize";
 import { NextResponse } from "next/server";
 import { init, User, Disputa } from "../../../../services/db";
+import { buildUserRateLimitKey, consumeRateLimit, getRequestClientIp } from "../../../../services/rate-limit";
+import {
+  SESSION_COOKIE_NAME,
+  authenticateUserRequest,
+  clearSessionCookieOptions,
+  encodeAuthToken,
+  getSessionCookieOptions
+} from "../../../../services/session-auth";
 import {
   sendBetNotificationEmail,
   sendPasswordRecoveryEmail,
@@ -43,6 +51,59 @@ const disposableEmailDomains = new Set([
 ]);
 
 const json = (body, status = 200) => NextResponse.json(body, { status });
+
+const enforcePublicRouteRateLimit = (request, scope, limit, windowMs) => {
+  const ip = getRequestClientIp(request) || "unknown";
+  const rateLimit = consumeRateLimit({ scope, key: ip, limit, windowMs });
+
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: "Muitas tentativas. Aguarde alguns instantes e tente novamente." },
+      {
+        status: 429,
+        headers: { "Retry-After": String(rateLimit.retryAfterSeconds) }
+      }
+    );
+  }
+
+  return null;
+};
+
+const enforceSensitiveRouteSecurity = (request, userId, scope, limit, windowMs) => {
+  const auth = authenticateUserRequest(request, userId);
+
+  if (!auth.ok) {
+    return { errorResponse: json({ error: auth.error }, auth.status), auth: null };
+  }
+
+  if (!scope || !limit || !windowMs) {
+    return { errorResponse: null, auth };
+  }
+
+  const rateLimit = consumeRateLimit({
+    scope,
+    key: buildUserRateLimitKey(request, auth.userId),
+    limit,
+    windowMs
+  });
+
+  if (!rateLimit.allowed) {
+    return {
+      auth: null,
+      errorResponse: NextResponse.json(
+        { error: "Muitas tentativas para esta operação. Aguarde alguns instantes e tente novamente." },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(rateLimit.retryAfterSeconds)
+          }
+        }
+      )
+    };
+  }
+
+  return { errorResponse: null, auth };
+};
 
 const parseJson = async (request) => {
   try {
@@ -225,10 +286,24 @@ const postLogin = async (body) => {
       return json({ error: "E-mail ou senha incorretos." }, 401);
     }
 
-    return json({ id: user.id, nome: user.nome, email: user.email, saldo: user.saldo });
+    const response = json({
+      id: user.id,
+      nome: user.nome,
+      email: user.email,
+      saldo: user.saldo
+    });
+
+    response.cookies.set(SESSION_COOKIE_NAME, encodeAuthToken(user.id), getSessionCookieOptions());
+    return response;
   } catch {
     return json({ error: "Erro ao consultar conta." }, 500);
   }
+};
+
+const postLogout = async () => {
+  const response = json({ success: true });
+  response.cookies.set(SESSION_COOKIE_NAME, "", clearSessionCookieOptions());
+  return response;
 };
 
 const postCriar = async (body) => {
@@ -375,7 +450,10 @@ const postCriar = async (body) => {
   }
 };
 
-const postVerificar = async (body) => {
+const postVerificar = async (request, body) => {
+  const rateLimitError = enforcePublicRouteRateLimit(request, "verificar", 10, 10 * 60 * 1000);
+  if (rateLimitError) return rateLimitError;
+
   const userId = Number(body.userId);
   const codigo = String(body.codigo || "").replace(/\D/g, "");
 
@@ -429,7 +507,10 @@ const postVerificar = async (body) => {
   }
 };
 
-const postReenviarCodigo = async (body) => {
+const postReenviarCodigo = async (request, body) => {
+  const rateLimitError = enforcePublicRouteRateLimit(request, "reenviar-codigo", 5, 10 * 60 * 1000);
+  if (rateLimitError) return rateLimitError;
+
   const userId = Number(body.userId);
 
   if (!userId) {
@@ -484,7 +565,10 @@ const postReenviarCodigo = async (body) => {
   }
 };
 
-const postRecuperarSenhaSolicitar = async (body) => {
+const postRecuperarSenhaSolicitar = async (request, body) => {
+  const rateLimitError = enforcePublicRouteRateLimit(request, "recuperar-senha-solicitar", 5, 15 * 60 * 1000);
+  if (rateLimitError) return rateLimitError;
+
   const normalizedEmail = String(body.email || "").trim().toLowerCase();
 
   if (!isValidEmail(normalizedEmail)) {
@@ -537,7 +621,10 @@ const postRecuperarSenhaSolicitar = async (body) => {
   }
 };
 
-const postRecuperarSenhaRedefinir = async (body) => {
+const postRecuperarSenhaRedefinir = async (request, body) => {
+  const rateLimitError = enforcePublicRouteRateLimit(request, "recuperar-senha-redefinir", 10, 10 * 60 * 1000);
+  if (rateLimitError) return rateLimitError;
+
   const normalizedEmail = String(body.email || "").trim().toLowerCase();
   const resetCode = String(body.codigo || "").replace(/\D/g, "");
   const newPassword = String(body.novaSenha || "");
@@ -594,7 +681,7 @@ const postRecuperarSenhaRedefinir = async (body) => {
   }
 };
 
-const postAlterarSenha = async (body) => {
+const postAlterarSenha = async (request, body) => {
   const userId = Number(body.userId);
   const senhaAtual = String(body.senhaAtual || "");
   const novaSenha = String(body.novaSenha || "");
@@ -611,8 +698,20 @@ const postAlterarSenha = async (body) => {
     return json({ error: "A nova senha deve ter no mínimo 8 caracteres." }, 400);
   }
 
+  const { auth, errorResponse } = enforceSensitiveRouteSecurity(
+    request,
+    userId,
+    "user:alterar-senha",
+    5,
+    15 * 60 * 1000
+  );
+
+  if (errorResponse) {
+    return errorResponse;
+  }
+
   try {
-    const user = await User.findByPk(userId, {
+    const user = await User.findByPk(auth.userId, {
       attributes: ["id", "senha_hash"],
       raw: true
     });
@@ -631,7 +730,7 @@ const postAlterarSenha = async (body) => {
       {
         senha_hash: senhaHash
       },
-      { where: { id: userId } }
+      { where: { id: auth.userId } }
     );
 
     return json({ success: true, message: "Senha atualizada com sucesso." });
@@ -640,7 +739,7 @@ const postAlterarSenha = async (body) => {
   }
 };
 
-const postSegurancaAcesso = async (body) => {
+const postSegurancaAcesso = async (request, body) => {
   const userId = Number(body.userId);
   const canalVerificacao = String(body.canalVerificacao || "email").trim().toLowerCase();
 
@@ -652,8 +751,20 @@ const postSegurancaAcesso = async (body) => {
     return json({ error: "No momento, o canal de segurança disponível é e-mail." }, 400);
   }
 
+  const { auth, errorResponse } = enforceSensitiveRouteSecurity(
+    request,
+    userId,
+    "user:seguranca-acesso",
+    10,
+    10 * 60 * 1000
+  );
+
+  if (errorResponse) {
+    return errorResponse;
+  }
+
   try {
-    const user = await User.findByPk(userId, {
+    const user = await User.findByPk(auth.userId, {
       attributes: ["id"],
       raw: true
     });
@@ -666,7 +777,7 @@ const postSegurancaAcesso = async (body) => {
       {
         canal_verificacao: canalVerificacao
       },
-      { where: { id: userId } }
+      { where: { id: auth.userId } }
     );
 
     return json({ success: true, message: "Configurações de segurança atualizadas." });
@@ -675,7 +786,7 @@ const postSegurancaAcesso = async (body) => {
   }
 };
 
-const postTwoFactorCadastrar = async (body) => {
+const postTwoFactorCadastrar = async (request, body) => {
   const userId = Number(body.userId);
   const destination = String(body.destination || "").trim().toLowerCase();
 
@@ -687,8 +798,20 @@ const postTwoFactorCadastrar = async (body) => {
     return json({ error: "Informe um e-mail válido para verificação em 2 etapas." }, 400);
   }
 
+  const { auth, errorResponse } = enforceSensitiveRouteSecurity(
+    request,
+    userId,
+    "user:2fa-cadastrar",
+    5,
+    10 * 60 * 1000
+  );
+
+  if (errorResponse) {
+    return errorResponse;
+  }
+
   try {
-    const user = await User.findByPk(userId, {
+    const user = await User.findByPk(auth.userId, {
       attributes: ["id"],
       raw: true
     });
@@ -707,7 +830,7 @@ const postTwoFactorCadastrar = async (body) => {
         two_factor_code: verificationCode,
         two_factor_expires_at: verificationExpiry
       },
-      { where: { id: userId } }
+      { where: { id: auth.userId } }
     );
 
     try {
@@ -732,7 +855,7 @@ const postTwoFactorCadastrar = async (body) => {
   }
 };
 
-const postTwoFactorAtivar = async (body) => {
+const postTwoFactorAtivar = async (request, body) => {
   const userId = Number(body.userId);
   const code = String(body.code || "").replace(/\D/g, "");
 
@@ -744,8 +867,20 @@ const postTwoFactorAtivar = async (body) => {
     return json({ error: "Informe um código válido de 6 dígitos." }, 400);
   }
 
+  const { auth, errorResponse } = enforceSensitiveRouteSecurity(
+    request,
+    userId,
+    "user:2fa-ativar",
+    8,
+    10 * 60 * 1000
+  );
+
+  if (errorResponse) {
+    return errorResponse;
+  }
+
   try {
-    const user = await User.findByPk(userId, {
+    const user = await User.findByPk(auth.userId, {
       attributes: ["id", "two_factor_code", "two_factor_expires_at", "two_factor_destination"],
       raw: true
     });
@@ -772,7 +907,7 @@ const postTwoFactorAtivar = async (body) => {
         two_factor_code: null,
         two_factor_expires_at: null
       },
-      { where: { id: userId } }
+      { where: { id: auth.userId } }
     );
 
     return json({
@@ -785,15 +920,27 @@ const postTwoFactorAtivar = async (body) => {
   }
 };
 
-const postTwoFactorDesativar = async (body) => {
+const postTwoFactorDesativar = async (request, body) => {
   const userId = Number(body.userId);
 
   if (!userId) {
     return json({ error: "Usuário inválido." }, 400);
   }
 
+  const { auth, errorResponse } = enforceSensitiveRouteSecurity(
+    request,
+    userId,
+    "user:2fa-desativar",
+    10,
+    10 * 60 * 1000
+  );
+
+  if (errorResponse) {
+    return errorResponse;
+  }
+
   try {
-    const user = await User.findByPk(userId, {
+    const user = await User.findByPk(auth.userId, {
       attributes: ["id"],
       raw: true
     });
@@ -808,7 +955,7 @@ const postTwoFactorDesativar = async (body) => {
         two_factor_code: null,
         two_factor_expires_at: null
       },
-      { where: { id: userId } }
+      { where: { id: auth.userId } }
     );
 
     return json({ success: true, message: "Verificação em 2 etapas desativada." });
@@ -817,7 +964,7 @@ const postTwoFactorDesativar = async (body) => {
   }
 };
 
-const postNotificacoesAposta = async (body) => {
+const postNotificacoesAposta = async (request, body) => {
   const userId = Number(body.userId);
   const tipo = String(body.tipo || "Atualização de aposta").trim();
   const mensagem = String(body.mensagem || "Você possui uma nova atualização de aposta.").trim();
@@ -826,8 +973,20 @@ const postNotificacoesAposta = async (body) => {
     return json({ error: "Usuário inválido para notificação." }, 400);
   }
 
+  const { auth, errorResponse } = enforceSensitiveRouteSecurity(
+    request,
+    userId,
+    "user:notificacoes-aposta",
+    20,
+    10 * 60 * 1000
+  );
+
+  if (errorResponse) {
+    return errorResponse;
+  }
+
   try {
-    const user = await User.findByPk(userId, {
+    const user = await User.findByPk(auth.userId, {
       attributes: ["email"],
       raw: true
     });
@@ -1085,70 +1244,92 @@ export async function POST(request, { params }) {
     return postLogin(body);
   }
 
+  if (path === "logout") {
+    return postLogout();
+  }
+
   if (path === "criar") {
     return postCriar(body);
   }
 
   if (path === "verificar") {
-    return postVerificar(body);
+    return postVerificar(request, body);
   }
 
   if (path === "reenviar-codigo") {
-    return postReenviarCodigo(body);
+    return postReenviarCodigo(request, body);
   }
 
   if (path === "recuperar-senha/solicitar") {
-    return postRecuperarSenhaSolicitar(body);
+    return postRecuperarSenhaSolicitar(request, body);
   }
 
   if (path === "recuperar-senha/redefinir") {
-    return postRecuperarSenhaRedefinir(body);
+    return postRecuperarSenhaRedefinir(request, body);
   }
 
   if (path === "alterar-senha") {
-    return postAlterarSenha(body);
+    return postAlterarSenha(request, body);
   }
 
   if (path === "seguranca/acesso") {
-    return postSegurancaAcesso(body);
+    return postSegurancaAcesso(request, body);
   }
 
   if (path === "2fa/cadastrar") {
-    return postTwoFactorCadastrar(body);
+    return postTwoFactorCadastrar(request, body);
   }
 
   if (path === "2fa/ativar") {
-    return postTwoFactorAtivar(body);
+    return postTwoFactorAtivar(request, body);
   }
 
   if (path === "2fa/desativar") {
-    return postTwoFactorDesativar(body);
+    return postTwoFactorDesativar(request, body);
   }
 
   if (path === "notificacoes/aposta") {
-    return postNotificacoesAposta(body);
+    return postNotificacoesAposta(request, body);
   }
 
   return json({ error: "Rota não encontrada." }, 404);
 }
 
-export async function GET(_request, { params }) {
+export async function GET(request, { params }) {
   await init;
 
   const path = await getPath(params);
 
   if (path.startsWith("dashboard/")) {
     const userId = Number(path.split("/")[1]);
+
+    const auth = authenticateUserRequest(request, userId);
+    if (!auth.ok) {
+      return json({ error: auth.error }, auth.status);
+    }
+
     return getDashboard(userId);
   }
 
   if (path.startsWith("status/")) {
     const userId = Number(path.split("/")[1]);
+
+    const auth = authenticateUserRequest(request, userId);
+    if (!auth.ok) {
+      return json({ error: auth.error }, auth.status);
+    }
+
     return getStatus(userId);
   }
 
   if (path.startsWith("perfil/")) {
     const userId = Number(path.split("/")[1]);
+
+    const auth = authenticateUserRequest(request, userId);
+    if (!auth.ok) {
+      return json({ error: auth.error }, auth.status);
+    }
+
     return getPerfil(userId);
   }
 

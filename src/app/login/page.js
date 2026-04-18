@@ -42,7 +42,15 @@ export default function LoginPage() {
         throw new Error(data.error || "Não foi possível realizar o login.");
       }
 
-      localStorage.setItem("firex1:user", JSON.stringify(data));
+      localStorage.setItem(
+        "firex1:user",
+        JSON.stringify({
+          id: data.id,
+          nome: data.nome,
+          email: data.email,
+          saldo: data.saldo
+        })
+      );
       setIsError(false);
       setMessage("Login realizado com sucesso.");
       router.push("/dashboard");
@@ -76,7 +84,10 @@ export default function LoginPage() {
           </label>
 
           <label className={styles.label} htmlFor="senha">
-            Senha
+            <span className={styles.labelRow}>
+              Senha
+              <Link href="/recuperar-senha" className={styles.forgotLink}>Esqueci minha senha</Link>
+            </span>
             <input
               id="senha"
               className={styles.input}

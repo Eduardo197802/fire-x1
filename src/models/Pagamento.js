@@ -19,7 +19,7 @@ export default function definePagamentoModel(sequelize) {
       },
       tipo: DataTypes.TEXT,
       valor: {
-        type: DataTypes.FLOAT,
+        type: DataTypes.DECIMAL(14, 2),
         defaultValue: 0
       },
       status: DataTypes.TEXT,

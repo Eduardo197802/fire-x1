@@ -182,7 +182,15 @@ export default function DashboardClient() {
     }
   ];
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await fetch("/api/user/logout", {
+        method: "POST"
+      });
+    } catch {
+      // A limpeza local ainda garante encerramento da sessão visível.
+    }
+
     window.localStorage.removeItem("firex1:user");
     window.location.href = "/";
   };

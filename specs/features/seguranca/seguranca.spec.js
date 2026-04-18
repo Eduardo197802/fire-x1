@@ -7,7 +7,7 @@
  *   POST /api/user/2fa/desativar
  */
 import { POST } from "@/app/api/user/[...slug]/route";
-import { makePostRequest, makeContext, readJson } from "../../support/request-factory";
+import { makePostRequest, makePostRequestWithHeaders, makeContext, readJson } from "../../support/request-factory";
 import { criarUsuario } from "../../fixtures";
 
 jest.mock("@/services/db", () => ({
@@ -24,8 +24,19 @@ jest.mock("@/services/email", () => ({
   sendTwoFactorVerificationEmail: jest.fn().mockResolvedValue(undefined),
 }));
 
-const post = (slug, body) =>
-  POST(makePostRequest(`/api/user/${slug}`, body), makeContext(slug.split("/")));
+const createToken = (userId, expiresAt = Date.now() + 60_000) => {
+  const payload = `${userId}.${expiresAt}`;
+  const signature = require("crypto").createHmac("sha256", "firex1-dev-secret").update(payload).digest("base64url");
+  return `${payload}.${signature}`;
+};
+
+const post = (slug, body, token) =>
+  POST(
+    token
+      ? makePostRequestWithHeaders(`/api/user/${slug}`, body, { Authorization: `Bearer ${token}` })
+      : makePostRequest(`/api/user/${slug}`, body),
+    makeContext(slug.split("/"))
+  );
 
 // ---------------------------------------------------------------------------
 describe("POST /api/user/alterar-senha", () => {
@@ -52,9 +63,29 @@ describe("POST /api/user/alterar-senha", () => {
         userId: 1,
         senhaAtual: "senha_errada",
         novaSenha: "NovaSenh@123",
-      });
+      }, createToken(1));
       expect(res.status).toBe(401);
     });
+  });
+
+  it("retorna 401 quando a sessão não é enviada", async () => {
+    const res = await post("alterar-senha", {
+      userId: 1,
+      senhaAtual: "old_password",
+      novaSenha: "NovaSenh@123",
+    });
+
+    expect(res.status).toBe(401);
+  });
+
+  it("retorna 403 quando o token pertence a outro usuário", async () => {
+    const res = await post("alterar-senha", {
+      userId: 1,
+      senhaAtual: "old_password",
+      novaSenha: "NovaSenh@123",
+    }, createToken(2));
+
+    expect(res.status).toBe(403);
   });
 
   it.todo("retorna 200 e atualiza o hash quando a senha atual está correta");
@@ -63,8 +94,13 @@ describe("POST /api/user/alterar-senha", () => {
 // ---------------------------------------------------------------------------
 describe("POST /api/user/2fa/cadastrar", () => {
   it("retorna 400 quando o e-mail de destino é inválido", async () => {
-    const res = await post("2fa/cadastrar", { userId: 1, destination: "nao-e-email" });
+    const res = await post("2fa/cadastrar", { userId: 1, destination: "nao-e-email" }, createToken(1));
     expect(res.status).toBe(400);
+  });
+
+  it("retorna 401 quando a sessão não é enviada", async () => {
+    const res = await post("2fa/cadastrar", { userId: 1, destination: "valido@test.dev" });
+    expect(res.status).toBe(401);
   });
 
   it.todo("envio o código de verificação 2FA por e-mail");

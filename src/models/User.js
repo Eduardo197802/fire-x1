@@ -12,7 +12,7 @@ export default function defineUserModel(sequelize) {
       nome: DataTypes.TEXT,
       email: DataTypes.TEXT,
       saldo: {
-        type: DataTypes.FLOAT,
+        type: DataTypes.DECIMAL(14, 2),
         defaultValue: 0
       },
       cpf: DataTypes.TEXT,

@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { init, Pagamento, User, sequelize } from "../../../../services/db";
+import { addMoney, isPositiveAmount, normalizeAmount, subtractMoney, toCents } from "../../../../services/money";
 import { sendPixWithdraw } from "../../../../services/pix";
+import { buildUserRateLimitKey, consumeRateLimit } from "../../../../services/rate-limit";
+import { authenticateUserRequest } from "../../../../services/session-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,19 +18,44 @@ export async function POST(request) {
   }
 
   const userId = Number(body.userId);
-  const valor = Number(body.valor);
+  const valor = normalizeAmount(body.valor);
   const requestId = String(body.requestId || "").trim();
 
   if (!userId) {
     return NextResponse.json({ error: "Usuário inválido para saque PIX." }, { status: 400 });
   }
 
-  if (!Number.isFinite(valor) || valor <= 0) {
+  const auth = authenticateUserRequest(request, userId);
+
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
+  if (!isPositiveAmount(valor)) {
     return NextResponse.json({ error: "Valor inválido para saque PIX." }, { status: 400 });
   }
 
   if (!requestId) {
     return NextResponse.json({ error: "requestId é obrigatório para idempotência." }, { status: 400 });
+  }
+
+  const rateLimit = consumeRateLimit({
+    scope: "pix:saque",
+    key: buildUserRateLimitKey(request, auth.userId),
+    limit: 5,
+    windowMs: 60 * 1000
+  });
+
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: "Muitas tentativas de saque. Aguarde alguns instantes e tente novamente." },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(rateLimit.retryAfterSeconds)
+        }
+      }
+    );
   }
 
   await init;
@@ -37,7 +65,7 @@ export async function POST(request) {
       txid: requestId,
       tipo: "saque",
       metodo: "pix",
-      user_id: userId,
+      user_id: auth.userId,
     },
   });
 
@@ -54,7 +82,7 @@ export async function POST(request) {
 
   try {
     await sequelize.transaction(async (transaction) => {
-      const user = await User.findByPk(userId, {
+      const user = await User.findByPk(auth.userId, {
         transaction,
         lock: transaction.LOCK.UPDATE,
       });
@@ -71,20 +99,20 @@ export async function POST(request) {
         throw new Error("Usuário sem chave PIX cadastrada.");
       }
 
-      if (Number(user.saldo || 0) < valor) {
+      if (toCents(user.saldo) < toCents(valor)) {
         throw new Error("Saldo insuficiente para saque PIX.");
       }
 
       chavePix = user.chave_pix;
 
       await User.update(
-        { saldo: Number(user.saldo || 0) - valor },
-        { where: { id: userId }, transaction }
+        { saldo: subtractMoney(user.saldo, valor) },
+        { where: { id: auth.userId }, transaction }
       );
 
       const pagamento = await Pagamento.create(
         {
-          user_id: userId,
+          user_id: auth.userId,
           tipo: "saque",
           valor,
           status: "em_processamento",
@@ -92,7 +120,7 @@ export async function POST(request) {
           origem: "efi",
           txid: requestId,
           chave_pix_destino: chavePix,
-          descricao: `Saque PIX do usuario ${userId}`,
+          descricao: `Saque PIX do usuario ${auth.userId}`,
         },
         { transaction }
       );
@@ -122,15 +150,15 @@ export async function POST(request) {
     });
   } catch (error) {
     await sequelize.transaction(async (transaction) => {
-      const user = await User.findByPk(userId, {
+      const user = await User.findByPk(auth.userId, {
         transaction,
         lock: transaction.LOCK.UPDATE,
       });
 
       if (user) {
         await User.update(
-          { saldo: Number(user.saldo || 0) + valor },
-          { where: { id: userId }, transaction }
+          { saldo: addMoney(user.saldo, valor) },
+          { where: { id: auth.userId }, transaction }
         );
       }
 

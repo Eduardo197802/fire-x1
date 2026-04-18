@@ -59,6 +59,8 @@
   color: #fff;
   padding: 0 12px;
   outline: none;
+  font-size: 15px;
+  letter-spacing: 0.05em;
 }
 
 .input:focus {
@@ -73,6 +75,7 @@
   background: linear-gradient(90deg, #ff6a00, #ff9a00);
   color: #1b1207;
   font-weight: 700;
+  font-size: 15px;
   cursor: pointer;
 }
 
@@ -97,24 +100,39 @@
 
 .backLink {
   display: inline-block;
-  margin-top: 12px;
+  margin-top: 14px;
   color: #ffd6ad;
   font-size: 13px;
   text-decoration: none;
 }
 
-.labelRow {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.backLink:hover {
+  text-decoration: underline;
 }
 
-.forgotLink {
+.textButton {
+  background: none;
+  border: none;
   color: #ffd6ad;
-  font-size: 12px;
+  font-size: 13px;
+  cursor: pointer;
+  margin-top: 8px;
+  padding: 0;
   text-decoration: none;
 }
 
-.forgotLink:hover {
+.textButton:hover {
   text-decoration: underline;
+}
+
+.concluido {
+  text-align: center;
+  padding: 12px 0 20px;
+}
+
+.concluidoIcon {
+  font-size: 48px;
+  color: #9dffbc;
+  margin: 0 0 12px;
+  line-height: 1;
 }

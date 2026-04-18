@@ -7,6 +7,7 @@
  *  - Ao implementar, substitua it.todo por it e escreva a asserção.
  */
 import { POST } from "@/app/api/user/[...slug]/route";
+import bcrypt from "bcryptjs";
 import { makePostRequest, makeContext, readJson } from "../../support/request-factory";
 import { criarUsuario } from "../../fixtures";
 
@@ -84,7 +85,36 @@ describe("POST /api/user/login", () => {
   });
 
   describe("fluxo de login bem-sucedido", () => {
-    it.todo("retorna 200 com id, nome, email e saldo quando as credenciais são válidas");
+    it("retorna 200 com dados públicos e cookie HttpOnly de sessão quando as credenciais são válidas", async () => {
+      const { User } = require("@/services/db");
+      const senha = "SenhaSegura123";
+
+      User.findOne.mockResolvedValue(
+        criarUsuario({
+          id: 7,
+          nome: "Usuário Teste",
+          email: "usuario@test.dev",
+          saldo: 125.5,
+          senha_hash: bcrypt.hashSync(senha, 10),
+        })
+      );
+
+      const res = await post({ email: "usuario@test.dev", senha });
+      const body = await readJson(res);
+      const setCookieHeader = res.headers.get("set-cookie") || "";
+
+      expect(res.status).toBe(200);
+      expect(body).toEqual({
+        id: 7,
+        nome: "Usuário Teste",
+        email: "usuario@test.dev",
+        saldo: 125.5,
+      });
+      expect(body).not.toHaveProperty("token");
+      expect(setCookieHeader).toMatch(/firex1_session=/i);
+      expect(setCookieHeader).toMatch(/HttpOnly/i);
+    });
+
     it.todo("aciona envio de código 2FA quando dois_fatores_ativo = 1");
   });
 });

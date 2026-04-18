@@ -22,6 +22,12 @@ jest.mock("@/services/email", () => ({
   sendTwoFactorVerificationEmail: jest.fn(),
 }));
 
+jest.mock("@/services/rate-limit", () => ({
+  consumeRateLimit: jest.fn().mockReturnValue({ allowed: true, retryAfterSeconds: 0 }),
+  buildUserRateLimitKey: jest.fn().mockReturnValue("test-key"),
+  getRequestClientIp: jest.fn().mockReturnValue("127.0.0.1"),
+}));
+
 const postVerificar = (body) =>
   POST(makePostRequest("/api/user/verificar", body), makeContext(["verificar"]));
 
@@ -82,6 +88,14 @@ describe("POST /api/user/verificar", () => {
     });
   });
 
+  it("retorna 429 quando o rate limit é excedido", async () => {
+    const { consumeRateLimit } = require("@/services/rate-limit");
+    consumeRateLimit.mockReturnValueOnce({ allowed: false, retryAfterSeconds: 60 });
+    const res = await postVerificar({ userId: 1, codigo: "123456" });
+    expect(res.status).toBe(429);
+    consumeRateLimit.mockReturnValue({ allowed: true, retryAfterSeconds: 0 });
+  });
+
   it.todo("retorna 200 imediatamente se a conta já estava verificada");
 });
 
@@ -90,6 +104,14 @@ describe("POST /api/user/reenviar-codigo", () => {
   it("retorna 400 quando userId está ausente", async () => {
     const res = await postReenviar({});
     expect(res.status).toBe(400);
+  });
+
+  it("retorna 429 quando o rate limit é excedido", async () => {
+    const { consumeRateLimit } = require("@/services/rate-limit");
+    consumeRateLimit.mockReturnValueOnce({ allowed: false, retryAfterSeconds: 60 });
+    const res = await postReenviar({ userId: 1 });
+    expect(res.status).toBe(429);
+    consumeRateLimit.mockReturnValue({ allowed: true, retryAfterSeconds: 0 });
   });
 
   it.todo("retorna 400 quando a conta já está verificada");

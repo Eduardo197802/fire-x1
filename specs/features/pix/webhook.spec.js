@@ -1,5 +1,5 @@
 import { POST } from "@/app/api/pix/webhook/route";
-import { makePostRequest, readJson } from "../../support/request-factory";
+import { makePostRequest, makePostRequestWithHeaders, readJson } from "../../support/request-factory";
 
 jest.mock("@/services/db", () => ({
   init: Promise.resolve(),
@@ -15,10 +15,16 @@ jest.mock("@/services/db", () => ({
 }));
 
 describe("POST /api/pix/webhook", () => {
-  const post = (body) => POST(makePostRequest("/api/pix/webhook", body));
+  const post = (body, token = "webhook-secret-test") =>
+    POST(
+      makePostRequestWithHeaders("/api/pix/webhook", body, {
+        "x-efi-webhook-token": token,
+      })
+    );
 
   beforeEach(() => {
     jest.clearAllMocks();
+    process.env.EFI_PIX_WEBHOOK_TOKEN = "webhook-secret-test";
   });
 
   it("retorna processed 0 quando payload nao tem eventos pix", async () => {
@@ -74,5 +80,13 @@ describe("POST /api/pix/webhook", () => {
       }),
       expect.objectContaining({ where: { id: 2 } })
     );
+  });
+
+  it("retorna 401 quando token do webhook e invalido", async () => {
+    const response = await post({ pix: [{ txid: "TX1" }] }, "token-invalido");
+    const body = await readJson(response);
+
+    expect(response.status).toBe(401);
+    expect(body.error).toMatch(/webhook pix não autorizado|webhook pix nao autorizado/i);
   });
 });
