@@ -1,6 +1,7 @@
 import GerencianetModule from "gn-api-sdk-node";
 import path from "path";
 import { fileURLToPath } from "url";
+import fs from "fs";
 
 const Gerencianet = GerencianetModule?.default || GerencianetModule;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -15,11 +16,43 @@ function requireEnv(name) {
   return value;
 }
 
+function resolveCertPath() {
+  const certPathEnv = process.env.EFI_CERT_PATH;
+  
+  if (!certPathEnv) {
+    throw new Error("EFI_CERT_PATH não configurado");
+  }
+
+  // Tenta resolver relativo ao cwd
+  const fromCwd = path.resolve(certPathEnv);
+  if (fs.existsSync(fromCwd)) {
+    return fromCwd;
+  }
+
+  // Tenta resolver relativo ao cwd() com prefixo
+  const fromCwdPrefix = path.resolve(/*turbopackIgnore: true*/ process.cwd(), certPathEnv);
+  if (fs.existsSync(fromCwdPrefix)) {
+    return fromCwdPrefix;
+  }
+
+  // Tenta relativo ao diretório raiz do projeto (__dirname = src/services)
+  const fromProjectRoot = path.resolve(__dirname, "..", "..", certPathEnv);
+  if (fs.existsSync(fromProjectRoot)) {
+    return fromProjectRoot;
+  }
+
+  // Se nenhum existir, retorna o melhor palpite e deixa falhar com erro descritivo
+  console.error(`Nenhum destes caminhos existe:
+    - ${fromCwd}
+    - ${fromCwdPrefix}
+    - ${fromProjectRoot}
+  `);
+  
+  return fromProjectRoot;
+}
+
 function buildOptions() {
-  const certPath = process.env.EFI_CERT_PATH;
-  const resolvedCertPath = certPath 
-    ? path.resolve(/*turbopackIgnore: true*/ process.cwd(), certPath)
-    : path.resolve(__dirname, "..", "..", "Efi Bank", "certificado.pem");
+  const resolvedCertPath = resolveCertPath();
 
   return {
     client_id: requireEnv("EFI_CLIENT_ID"),
