@@ -23,32 +23,37 @@ function resolveCertPath() {
     throw new Error("EFI_CERT_PATH não configurado");
   }
 
-  // Tenta resolver relativo ao cwd
-  const fromCwd = path.resolve(certPathEnv);
+  // Se o caminho já é absoluto, usa direto
+  if (certPathEnv.startsWith('/')) {
+    return certPathEnv;
+  }
+
+  // Tenta resolver relativo ao cwd (onde Next.js será executado)
+  const fromCwd = path.resolve(/*turbopackIgnore: true*/ process.cwd(), certPathEnv);
   if (fs.existsSync(fromCwd)) {
     return fromCwd;
   }
 
-  // Tenta resolver relativo ao cwd() com prefixo
-  const fromCwdPrefix = path.resolve(/*turbopackIgnore: true*/ process.cwd(), certPathEnv);
-  if (fs.existsSync(fromCwdPrefix)) {
-    return fromCwdPrefix;
-  }
-
-  // Tenta relativo ao diretório raiz do projeto (__dirname = src/services)
+  // Tenta relativo ao projeto root
   const fromProjectRoot = path.resolve(__dirname, "..", "..", certPathEnv);
   if (fs.existsSync(fromProjectRoot)) {
     return fromProjectRoot;
   }
 
-  // Se nenhum existir, retorna o melhor palpite e deixa falhar com erro descritivo
-  console.error(`Nenhum destes caminhos existe:
+  // Tenta caminho absoluto em produção
+  const prodPath = `/home/fire-x1/application/fire-x1/${certPathEnv}`;
+  if (fs.existsSync(prodPath)) {
+    return prodPath;
+  }
+
+  // Se nenhum existir, retorna o melhor palpite
+  console.error(`[PIX] Nenhum destes caminhos existe:
     - ${fromCwd}
-    - ${fromCwdPrefix}
     - ${fromProjectRoot}
+    - ${prodPath}
   `);
   
-  return fromProjectRoot;
+  return prodPath;
 }
 
 function buildOptions() {
