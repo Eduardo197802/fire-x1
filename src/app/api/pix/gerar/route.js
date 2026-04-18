@@ -77,6 +77,7 @@ export async function POST(request) {
     await Pagamento.create({
       user_id: auth.userId,
       tipo: "deposito",
+      amount: valor,
       valor,
       status: "pendente",
       metodo: "pix",

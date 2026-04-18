@@ -114,6 +114,7 @@ export async function POST(request) {
         {
           user_id: auth.userId,
           tipo: "saque",
+          amount: valor,
           valor,
           status: "em_processamento",
           metodo: "pix",

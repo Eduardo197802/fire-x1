@@ -18,6 +18,10 @@ export default function definePagamentoModel(sequelize) {
         allowNull: true
       },
       tipo: DataTypes.TEXT,
+      amount: {
+        type: DataTypes.DECIMAL(14, 2),
+        allowNull: true
+      },
       valor: {
         type: DataTypes.DECIMAL(14, 2),
         defaultValue: 0

@@ -65,6 +65,7 @@ const requiredPagamentoColumns = {
     onUpdate: "CASCADE",
     onDelete: "SET NULL"
   },
+  amount: { type: Sequelize.DECIMAL(14, 2), allowNull: true },
   gateway: { type: Sequelize.TEXT, allowNull: true },
   txid: { type: Sequelize.TEXT, allowNull: true },
   efi_end_to_end_id: { type: Sequelize.TEXT, allowNull: true },
