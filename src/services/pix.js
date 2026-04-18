@@ -18,7 +18,7 @@ function requireEnv(name) {
 function buildOptions() {
   const certPath = process.env.EFI_CERT_PATH;
   const resolvedCertPath = certPath 
-    ? path.resolve(process.cwd(), certPath)
+    ? path.resolve(/*turbopackIgnore: true*/ process.cwd(), certPath)
     : path.resolve(__dirname, "..", "..", "Efi Bank", "certificado.pem");
 
   return {
