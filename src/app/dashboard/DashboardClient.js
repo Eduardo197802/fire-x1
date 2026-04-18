@@ -328,7 +328,7 @@ export default function DashboardClient() {
                   </p>
 
                   <div className={styles.heroActions}>
-                    <button className={styles.primaryButton}>Adicionar crédito</button>
+                    <Link href="/conta/adicionar-fundo" className={styles.primaryButton}>Adicionar crédito</Link>
                     <button className={styles.secondaryButton}>Criar desafios</button>
                     <button className={styles.secondaryButton}>Ver desafios</button>
                   </div>

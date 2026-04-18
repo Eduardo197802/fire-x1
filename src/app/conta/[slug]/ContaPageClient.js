@@ -81,6 +81,32 @@ const initialPasswordForm = {
   confirmarNovaSenha: ""
 };
 
+const parseAmountInput = (value) => {
+  const normalized = String(value || "")
+    .replace(/\s/g, "")
+    .replace(/\./g, "")
+    .replace(",", ".");
+
+  const amount = Number(normalized);
+  if (!Number.isFinite(amount)) return 0;
+  return Number(amount.toFixed(2));
+};
+
+const resolveSessionUserId = () => {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const rawUser = window.localStorage.getItem("firex1:user");
+    if (!rawUser) return null;
+
+    const parsedUser = JSON.parse(rawUser);
+    const id = Number(parsedUser?.id);
+    return Number.isFinite(id) && id > 0 ? id : null;
+  } catch {
+    return null;
+  }
+};
+
 export default function ContaPageClient({ pageKey, page }) {
   const [userId, setUserId] = useState(null);
   const [activeTab, setActiveTab] = useState("editar-perfil");
@@ -108,6 +134,10 @@ export default function ContaPageClient({ pageKey, page }) {
   const [twoStepError, setTwoStepError] = useState("");
 
   const [actionLoading, setActionLoading] = useState(false);
+  const [depositValue, setDepositValue] = useState("20,00");
+  const [depositData, setDepositData] = useState(null);
+  const [depositError, setDepositError] = useState("");
+  const [depositMessage, setDepositMessage] = useState("");
 
   useEffect(() => {
     if (pageKey !== "meu-perfil") {
@@ -719,6 +749,50 @@ export default function ContaPageClient({ pageKey, page }) {
     return renderTwoStepPanel();
   };
 
+  const onGenerateDeposit = async () => {
+    const sessionUserId = userId || resolveSessionUserId();
+
+    if (!sessionUserId) {
+      setDepositError("Sessão não encontrada. Faça login novamente.");
+      setDepositMessage("");
+      return;
+    }
+
+    const valor = parseAmountInput(depositValue);
+
+    if (valor <= 0) {
+      setDepositError("Informe um valor válido para gerar o depósito.");
+      setDepositMessage("");
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      setDepositError("");
+      setDepositMessage("");
+      setDepositData(null);
+
+      const response = await fetch("/api/pix/gerar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: sessionUserId, valor })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Não foi possível gerar o depósito PIX.");
+      }
+
+      setDepositData(data);
+      setDepositMessage("Depósito PIX gerado com sucesso.");
+    } catch (error) {
+      setDepositError(error.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   return (
     <main className={styles.page}>
       <section className={`${styles.card} ${pageKey === "meu-perfil" ? styles.cardWide : ""}`}>
@@ -770,7 +844,51 @@ export default function ContaPageClient({ pageKey, page }) {
           </>
         ) : null}
 
-        {pageKey !== "meu-perfil" ? (
+        {pageKey === "adicionar-fundo" ? (
+          <div className={styles.actions}>
+            <label className={styles.fieldGroup}>
+              <span>Valor do depósito (R$)</span>
+              <input
+                value={depositValue}
+                onChange={(event) => {
+                  setDepositValue(event.target.value);
+                  setDepositError("");
+                  setDepositMessage("");
+                }}
+                placeholder="20,00"
+                inputMode="decimal"
+              />
+            </label>
+
+            <button
+              type="button"
+              className={styles.primaryButton}
+              onClick={onGenerateDeposit}
+              disabled={actionLoading}
+            >
+              {actionLoading ? "Gerando..." : page.action}
+            </button>
+            <Link href="/dashboard" className={styles.secondaryLink}>Voltar ao dashboard</Link>
+
+            {depositError ? <p className={styles.errorMessage}>{depositError}</p> : null}
+            {depositMessage ? <p className={styles.successMessage}>{depositMessage}</p> : null}
+
+            {depositData ? (
+              <div className={styles.tabPanelForm}>
+                <p className={styles.tabHelper}>Use o QR Code ou copie o código Pix para concluir o pagamento.</p>
+                {depositData.qrCodeImagem ? (
+                  <img src={depositData.qrCodeImagem} alt="QR Code Pix" style={{ maxWidth: 260, borderRadius: 12 }} />
+                ) : null}
+                <label className={styles.fieldGroup}>
+                  <span>Código Pix</span>
+                  <input value={depositData.brCode || ""} readOnly />
+                </label>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {pageKey !== "meu-perfil" && pageKey !== "adicionar-fundo" ? (
           <div className={styles.actions}>
             <button type="button" className={styles.primaryButton}>{page.action}</button>
             <Link href="/dashboard" className={styles.secondaryLink}>Voltar ao dashboard</Link>

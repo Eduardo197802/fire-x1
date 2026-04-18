@@ -1,5 +1,7 @@
-import Gerencianet from "gerencianet";
+import GerencianetModule from "gn-api-sdk-node";
 import path from "path";
+
+const Gerencianet = GerencianetModule?.default || GerencianetModule;
 
 function requireEnv(name) {
   const value = process.env[name];
