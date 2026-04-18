@@ -55,6 +55,16 @@ const requiredUserColumns = {
 };
 
 const requiredPagamentoColumns = {
+  disputa_id: {
+    type: Sequelize.INTEGER,
+    allowNull: true,
+    references: {
+      model: "disputas",
+      key: "id"
+    },
+    onUpdate: "CASCADE",
+    onDelete: "SET NULL"
+  },
   txid: { type: Sequelize.TEXT, allowNull: true },
   efi_end_to_end_id: { type: Sequelize.TEXT, allowNull: true },
   chave_pix_destino: { type: Sequelize.TEXT, allowNull: true },
