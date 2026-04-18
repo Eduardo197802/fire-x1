@@ -1,7 +1,9 @@
 import GerencianetModule from "gn-api-sdk-node";
 import path from "path";
+import { fileURLToPath } from "url";
 
 const Gerencianet = GerencianetModule?.default || GerencianetModule;
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function requireEnv(name) {
   const value = process.env[name];
@@ -14,11 +16,16 @@ function requireEnv(name) {
 }
 
 function buildOptions() {
+  const certPath = process.env.EFI_CERT_PATH;
+  const resolvedCertPath = certPath 
+    ? path.resolve(process.cwd(), certPath)
+    : path.resolve(__dirname, "..", "..", "Efi Bank", "certificado.pem");
+
   return {
     client_id: requireEnv("EFI_CLIENT_ID"),
     client_secret: requireEnv("EFI_CLIENT_SECRET"),
     sandbox: String(process.env.EFI_SANDBOX || "false").toLowerCase() === "true",
-    certificate: process.env.EFI_CERT_PATH || path.resolve("Efi Bank", "certificado.pem"),
+    certificate: resolvedCertPath,
   };
 }
 
