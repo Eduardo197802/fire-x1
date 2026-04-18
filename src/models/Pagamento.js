@@ -24,6 +24,7 @@ export default function definePagamentoModel(sequelize) {
       },
       status: DataTypes.TEXT,
       metodo: DataTypes.TEXT,
+      gateway: DataTypes.TEXT,
       txid: DataTypes.TEXT,
       efi_end_to_end_id: DataTypes.TEXT,
       chave_pix_destino: DataTypes.TEXT,

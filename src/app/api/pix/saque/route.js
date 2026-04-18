@@ -117,6 +117,7 @@ export async function POST(request) {
           valor,
           status: "em_processamento",
           metodo: "pix",
+          gateway: "efi",
           origem: "efi",
           txid: requestId,
           chave_pix_destino: chavePix,
