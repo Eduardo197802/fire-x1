@@ -18,7 +18,7 @@
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "dotenv": "^17.4.0",
-    "gn-api-sdk-node": "^1.2.0",
+    "gn-api-sdk-node": "^3.0.4",
     "next": "^16.2.2",
     "nodemailer": "^8.0.4",
     "pg": "^8.13.1",
