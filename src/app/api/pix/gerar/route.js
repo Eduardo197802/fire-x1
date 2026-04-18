@@ -82,6 +82,7 @@ export async function POST(request) {
       status: "pendente",
       metodo: "pix",
       gateway: "efi",
+      external_reference: charge.txid,
       origem: "efi",
       txid: charge.txid,
       payload_br_code: charge.brCode,
