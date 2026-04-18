@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import QRCode from "qrcode";
 import { useEffect, useMemo, useState } from "react";
 import styles from "./page.module.css";
 
@@ -107,6 +108,26 @@ const resolveSessionUserId = () => {
   }
 };
 
+const resolveDepositQrImage = async (data) => {
+  const providedImage = data?.qrCodeImagem || data?.imagem || null;
+
+  if (providedImage) {
+    return providedImage;
+  }
+
+  const brCode = String(data?.brCode || "").trim();
+
+  if (!brCode) {
+    return null;
+  }
+
+  return QRCode.toDataURL(brCode, {
+    errorCorrectionLevel: "M",
+    margin: 1,
+    width: 320
+  });
+};
+
 export default function ContaPageClient({ pageKey, page }) {
   const [userId, setUserId] = useState(null);
   const [activeTab, setActiveTab] = useState("editar-perfil");
@@ -136,6 +157,7 @@ export default function ContaPageClient({ pageKey, page }) {
   const [actionLoading, setActionLoading] = useState(false);
   const [depositValue, setDepositValue] = useState("20,00");
   const [depositData, setDepositData] = useState(null);
+  const [depositQrImage, setDepositQrImage] = useState("");
   const [depositError, setDepositError] = useState("");
   const [depositMessage, setDepositMessage] = useState("");
 
@@ -771,6 +793,7 @@ export default function ContaPageClient({ pageKey, page }) {
       setDepositError("");
       setDepositMessage("");
       setDepositData(null);
+      setDepositQrImage("");
 
       const response = await fetch("/api/pix/gerar", {
         method: "POST",
@@ -785,6 +808,7 @@ export default function ContaPageClient({ pageKey, page }) {
       }
 
       setDepositData(data);
+      setDepositQrImage(await resolveDepositQrImage(data));
       setDepositMessage("Depósito PIX gerado com sucesso.");
     } catch (error) {
       setDepositError(error.message);
@@ -876,8 +900,10 @@ export default function ContaPageClient({ pageKey, page }) {
             {depositData ? (
               <div className={styles.tabPanelForm}>
                 <p className={styles.tabHelper}>Use o QR Code ou copie o código Pix para concluir o pagamento.</p>
-                {depositData.qrCodeImagem ? (
-                  <img src={depositData.qrCodeImagem} alt="QR Code Pix" style={{ maxWidth: 260, borderRadius: 12 }} />
+                {depositQrImage ? (
+                  <div className={styles.qrCodeCard}>
+                    <img className={styles.qrCodeImage} src={depositQrImage} alt="QR Code Pix" />
+                  </div>
                 ) : null}
                 <label className={styles.fieldGroup}>
                   <span>Código Pix</span>

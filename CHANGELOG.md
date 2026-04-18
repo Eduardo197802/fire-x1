@@ -27,6 +27,7 @@ Todas as mudanças relevantes deste projeto devem ser registradas neste arquivo.
 ## 2026-04-18
 - Corrigido o fluxo de `Adicionar crédito`: o CTA da dashboard agora navega para `conta/adicionar-fundo` em `src/app/dashboard/DashboardClient.js`.
 - Implementada a acao do botao `Gerar deposito` em `src/app/conta/[slug]/ContaPageClient.js`, com validacao de valor, chamada `POST /api/pix/gerar` e exibicao de QR Code/codigo Pix no frontend.
+- Adicionado fallback de geracao local de QR Code em `src/app/conta/[slug]/ContaPageClient.js` para exibir o QR mesmo quando a API PIX retornar apenas o codigo copia-e-cola.
 - Ajustada a migration `006-alter-money-columns-to-decimal.js` para tolerar schemas legados onde `pagamentos.valor` ou `users.saldo` ainda nao existam, adicionando a coluna antes do `changeColumn` quando necessario.
 - Endurecida a autenticacao de sessao com cookie HttpOnly `firex1_session` no login e logout por servidor em `src/app/api/user/[...slug]/route.js`.
 - Endpoints protegidos agora aceitam sessao por cookie assinado no servidor via `src/services/session-auth.js`, reduzindo exposicao de token em `localStorage`.

@@ -173,6 +173,22 @@
   flex-wrap: wrap;
 }
 
+.qrCodeCard {
+  width: fit-content;
+  padding: 14px;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.qrCodeImage {
+  display: block;
+  width: min(320px, 100%);
+  height: auto;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
 .metaGrid {
   margin-top: 16px;
   display: grid;
