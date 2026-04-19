@@ -31,7 +31,7 @@ export default function Admin2FAClient() {
     setError("");
 
     try {
-      const response = await fetch("/admin/2fa", {
+      const response = await fetch("/api/admin/auth/2fa-verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

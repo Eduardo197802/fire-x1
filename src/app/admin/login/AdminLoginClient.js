@@ -31,7 +31,7 @@ export default function AdminLoginClient() {
     setError("");
 
     try {
-      const response = await fetch("/admin/login", {
+      const response = await fetch("/api/admin/auth/login-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

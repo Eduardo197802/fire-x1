@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { findActiveAdminById, recordAdminAccessLog } from "../../../services/admin-users";
+import { findActiveAdminById, recordAdminAccessLog } from "../../../../../services/admin-users";
 import {
   ADMIN_LOGIN_COOKIE_NAME,
   ADMIN_PENDING_COOKIE_NAME,
@@ -11,9 +11,9 @@ import {
   extractAdminLoginToken,
   extractAdminPendingToken,
   getAdminSessionCookieOptions
-} from "../../../services/admin-session";
-import { verifyAdminTotpCode } from "../../../services/admin-totp";
-import { consumeRateLimit, getRequestClientIp } from "../../../services/rate-limit";
+} from "../../../../../services/admin-session";
+import { verifyAdminTotpCode } from "../../../../../services/admin-totp";
+import { consumeRateLimit, getRequestClientIp } from "../../../../../services/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
