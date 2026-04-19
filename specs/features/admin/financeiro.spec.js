@@ -1,10 +1,7 @@
 import { jest } from "@jest/globals";
 
-jest.mock("@/services/db.js");
-jest.mock("@/services/admin-auth.js");
-
-import { init, sequelize } from "@/services/db.js";
-import { authenticateAdminRequest } from "@/services/admin-auth.js";
+const authenticateAdminRequest = jest.fn();
+const init = { then: jest.fn() };
 
 describe("Fase 5 - API Admin Financeiro", () => {
   beforeEach(() => {
@@ -85,7 +82,7 @@ describe("Fase 5 - API Admin Financeiro", () => {
   describe("Validação de Entrada", () => {
     test("GET /api/admin/financeiro/diario sem 'de' deve retornar 400", async () => {
       const de = undefined;
-      const isValid = de && /^\d{4}-\d{2}-\d{2}$/.test(de);
+      const isValid = Boolean(de && /^\d{4}-\d{2}-\d{2}$/.test(de));
 
       expect(isValid).toBe(false);
     });

@@ -100,9 +100,33 @@ const sendTwoFactorVerificationEmail = async ({ to, code, expiresInMinutes }) =>
   });
 };
 
+const sendAdminAccessLinkEmail = async ({ to, name, linkUrl, expiresInMinutes }) => {
+  const safeName = String(name || "administrador");
+
+  await sendMail({
+    to,
+    subject: "Fire X1 Play - Link de acesso administrativo",
+    text: `Olá, ${safeName}. Use este link para iniciar seu acesso administrativo: ${linkUrl}. O link expira em ${expiresInMinutes} minutos e só pode ser usado uma vez.`,
+    html: `
+      <div style="font-family: Arial, sans-serif; color: #222; line-height: 1.5;">
+        <h2 style="margin: 0 0 12px; color: #ff6a00;">Acesso administrativo</h2>
+        <p>Olá, <strong>${safeName}</strong>.</p>
+        <p>Use o botão abaixo para iniciar o acesso administrativo seguro:</p>
+        <p>
+          <a href="${linkUrl}" style="display: inline-block; padding: 10px 18px; background: #111; color: #fff; text-decoration: none; border-radius: 8px;">
+            Abrir acesso administrativo
+          </a>
+        </p>
+        <p>Este link expira em <strong>${expiresInMinutes} minutos</strong> e pode ser usado uma única vez.</p>
+      </div>
+    `
+  });
+};
+
 module.exports = {
   sendRegistrationConfirmationEmail,
   sendPasswordRecoveryEmail,
   sendBetNotificationEmail,
-  sendTwoFactorVerificationEmail
+  sendTwoFactorVerificationEmail,
+  sendAdminAccessLinkEmail
 };

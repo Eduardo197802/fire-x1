@@ -133,3 +133,11 @@ Todas as mudanças relevantes deste projeto devem ser registradas neste arquivo.
 - Adicionado redirecionamento de entrada em `src/app/admin/page.js` para `admin/financeiro`.
 - Criadas novas páginas base dentro de admin: `usuarios`, `pix`, `transacoes`, `caixa`, `seguranca` e `relatorios`.
 - Adicionados estilos comuns para seções administrativas em `src/app/admin/section.module.css` e estilos de navegação em `src/app/admin/layout.module.css`.
+
+## 2026-04-19 (Fase 8 - Pendencias Admin Seguro)
+- Implementado endpoint `GET /api/admin/auth/session` em `src/app/api/admin/auth/session/route.js` para validar sessão administrativa por cookie e liberar dados do operador autenticado.
+- Implementado endpoint `POST /api/admin/auth/request-link` em `src/app/api/admin/auth/request-link/route.js` com resposta neutra anti-enumeração e rate limit de 3 requisições por minuto por IP.
+- Implementado fluxo de consumo de link temporário em `GET /admin/acesso/[token]` (`src/app/admin/acesso/[token]/route.js`) com uso único do token e criação de sessão pendente.
+- Adicionado serviço `src/services/admin-access-link.js` para geração de token seguro (`crypto.randomBytes`), armazenamento por hash SHA-256 e validação de autorização do administrador antes do envio.
+- Adicionada migration `src/migrations/013-create-admin-access-links.js` para tabela `admin_access_links` com índices por e-mail, expiração e uso.
+- Serviço de e-mail evoluído em `src/services/email.js` com envio de link administrativo (`sendAdminAccessLinkEmail`).
