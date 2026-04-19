@@ -1,6 +1,6 @@
 import crypto from "crypto";
-import { init, User } from "../../services/db";
-import { extractSessionToken, decodeAuthToken } from "../../services/session-auth";
+import { init, User } from "./db.js";
+import { extractSessionToken, decodeAuthToken } from "./session-auth.js";
 
 export const parseAllowedOperatorIds = () => {
   const raw = String(process.env.ADMIN_FINANCEIRO_ALLOWED_USER_IDS || "");

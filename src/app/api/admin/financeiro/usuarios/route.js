@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { init, sequelize } from "../../../../services/db";
-import { authenticateAdminRequest } from "../../../../services/admin-auth";
+import { init, sequelize } from "../../../../../services/db";
+import { authenticateAdminRequest } from "../../../../../services/admin-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
