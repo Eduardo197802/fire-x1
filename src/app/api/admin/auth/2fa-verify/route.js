@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { findActiveAdminById, recordAdminAccessLog } from "../../../../../services/admin-users";
+import {
+  findActiveAdminById,
+  recordAdminAccessLog,
+  reserveAdminTotpStep
+} from "../../../../../services/admin-users";
 import {
   ADMIN_LOGIN_COOKIE_NAME,
   ADMIN_PENDING_COOKIE_NAME,
@@ -12,7 +16,7 @@ import {
   extractAdminPendingToken,
   getAdminSessionCookieOptions
 } from "../../../../../services/admin-session";
-import { verifyAdminTotpCode } from "../../../../../services/admin-totp";
+import { verifyAdminTotpCodeWithStep } from "../../../../../services/admin-totp";
 import { consumeRateLimit, getRequestClientIp } from "../../../../../services/rate-limit";
 
 export const runtime = "nodejs";
@@ -64,12 +68,35 @@ export async function POST(request) {
     return json({ error: "2FA TOTP não configurado para este administrador." }, 403);
   }
 
-  const valid = verifyAdminTotpCode({ code, secret: admin.twofa_segredo, periodSeconds: 30, window: 1 });
-  if (!valid) {
+  const verification = verifyAdminTotpCodeWithStep({
+    code,
+    secret: admin.twofa_segredo,
+    periodSeconds: 30,
+    window: 1
+  });
+
+  if (!verification.valid) {
     await recordAdminAccessLog({
       adminId: admin.id,
       acao: "2fa.falha",
       detalhe: "Código TOTP inválido.",
+      ip
+    }).catch(() => {});
+
+    return json({ error: "Código 2FA inválido." }, 401);
+  }
+
+  const reservedStep = await reserveAdminTotpStep({
+    adminId: admin.id,
+    step: verification.step,
+    ip
+  });
+
+  if (!reservedStep) {
+    await recordAdminAccessLog({
+      adminId: admin.id,
+      acao: "2fa.replay",
+      detalhe: "Tentativa de reutilização de código TOTP.",
       ip
     }).catch(() => {});
 

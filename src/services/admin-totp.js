@@ -62,28 +62,31 @@ const hotp = (secretBuffer, counter) => {
   return String(code % 1000000).padStart(6, "0");
 };
 
-export const verifyAdminTotpCode = ({ code, secret, periodSeconds = 30, window = 1 }) => {
+export const verifyAdminTotpCodeWithStep = ({ code, secret, periodSeconds = 30, window = 1 }) => {
   const normalizedCode = String(code || "").replace(/\D/g, "");
   if (normalizedCode.length !== 6) {
-    return false;
+    return { valid: false, step: null };
   }
 
   const secretBuffer = decodeBase32(secret);
   if (!secretBuffer.length) {
-    return false;
+    return { valid: false, step: null };
   }
 
   const counter = Math.floor(Date.now() / 1000 / periodSeconds);
 
   for (let drift = -window; drift <= window; drift += 1) {
-    const expected = hotp(secretBuffer, counter + drift);
+    const step = counter + drift;
+    const expected = hotp(secretBuffer, step);
     if (expected === normalizedCode) {
-      return true;
+      return { valid: true, step };
     }
   }
 
-  return false;
+  return { valid: false, step: null };
 };
+
+export const verifyAdminTotpCode = (options) => verifyAdminTotpCodeWithStep(options).valid;
 
 export const generateAdminTotpSecret = (bytes = 20) => {
   const random = crypto.randomBytes(bytes);
