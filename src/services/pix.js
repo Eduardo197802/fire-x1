@@ -4,7 +4,7 @@ import { fileURLToPath } from "url";
 import fs from "fs";
 
 const Gerencianet = GerencianetModule?.default || GerencianetModule;
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 
 function requireEnv(name) {
   const value = process.env[name];
@@ -35,7 +35,7 @@ function resolveCertPath() {
   }
 
   // Tenta relativo ao projeto root
-  const fromProjectRoot = path.resolve(__dirname, "..", "..", certPathEnv);
+  const fromProjectRoot = path.resolve(moduleDir, "..", "..", certPathEnv);
   if (fs.existsSync(fromProjectRoot)) {
     return fromProjectRoot;
   }
