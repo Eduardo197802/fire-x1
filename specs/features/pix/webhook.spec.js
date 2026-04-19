@@ -25,6 +25,7 @@ describe("POST /api/pix/webhook", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.EFI_PIX_WEBHOOK_TOKEN = "webhook-secret-test";
+    delete process.env.EFI_PIX_WEBHOOK_ALLOW_QUERY_BOOTSTRAP;
   });
 
   it("retorna processed 0 quando payload nao tem eventos pix", async () => {
@@ -84,6 +85,34 @@ describe("POST /api/pix/webhook", () => {
 
   it("retorna 401 quando token do webhook e invalido", async () => {
     const response = await post({ pix: [{ txid: "TX1" }] }, "token-invalido");
+    const body = await readJson(response);
+
+    expect(response.status).toBe(401);
+    expect(body.error).toMatch(/webhook pix não autorizado|webhook pix nao autorizado/i);
+  });
+
+  it("aceita token por query apenas no bootstrap quando habilitado", async () => {
+    process.env.EFI_PIX_WEBHOOK_ALLOW_QUERY_BOOTSTRAP = "true";
+
+    const response = await POST(
+      makePostRequest("/api/pix/webhook?token=webhook-secret-test", {})
+    );
+
+    const body = await readJson(response);
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({ processed: 0, ignored: 0 });
+  });
+
+  it("nega token por query para evento pix mesmo quando bootstrap esta habilitado", async () => {
+    process.env.EFI_PIX_WEBHOOK_ALLOW_QUERY_BOOTSTRAP = "true";
+
+    const response = await POST(
+      makePostRequest("/api/pix/webhook?token=webhook-secret-test", {
+        pix: [{ txid: "TX-QUERY-NEGADO", valor: "10.00" }],
+      })
+    );
+
     const body = await readJson(response);
 
     expect(response.status).toBe(401);

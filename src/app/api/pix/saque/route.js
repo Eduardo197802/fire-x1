@@ -4,6 +4,7 @@ import { addMoney, isPositiveAmount, normalizeAmount, subtractMoney, toCents } f
 import { sendPixWithdraw } from "../../../../services/pix";
 import { buildUserRateLimitKey, consumeRateLimit } from "../../../../services/rate-limit";
 import { authenticateUserRequest } from "../../../../services/session-auth";
+import { registrarTransacao } from "../../../../services/financeiro";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -145,6 +146,20 @@ export async function POST(request) {
       },
       { where: { id: pagamentoId } }
     );
+
+    // Registrar transação no novo modelo financeiro (best-effort, não reverte débito se falhar)
+    try {
+      await registrarTransacao({
+        userId: auth.userId,
+        tipo: "SAQUE",
+        direcao: "saida",
+        valor: valor,
+        status: "confirmado",
+        referenciaExterna: requestId
+      });
+    } catch (err) {
+      console.error(`[Saque PIX] Falha ao registrar transação de saque: ${err.message}`);
+    }
 
     return NextResponse.json({
       requestId,

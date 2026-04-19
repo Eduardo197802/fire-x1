@@ -22,7 +22,12 @@ export default function DashboardClient() {
   const userMenuRef = useRef(null);
   const openTimerRef = useRef(null);
   const closeTimerRef = useRef(null);
+  const toastTimerRef = useRef(null);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [pixToast, setPixToast] = useState({
+    type: "",
+    message: ""
+  });
 
   const [state, setState] = useState({
     loading: true,
@@ -31,6 +36,48 @@ export default function DashboardClient() {
     metrics: null,
     activity: []
   });
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const pixState = String(searchParams.get("pix") || "").toLowerCase();
+
+    if (!pixState) {
+      return;
+    }
+
+    if (pixState === "creditado") {
+      setPixToast({
+        type: "success",
+        message: "Depósito PIX confirmado. Seu saldo foi atualizado."
+      });
+    } else if (pixState === "expirado") {
+      setPixToast({
+        type: "warning",
+        message: "O QR Code PIX expirou após 5 minutos. Gere um novo depósito para continuar."
+      });
+    } else if (pixState === "sessao-invalida") {
+      setPixToast({
+        type: "warning",
+        message: "Sua sessão expirou durante a confirmação do PIX. Faça login novamente."
+      });
+    }
+
+    searchParams.delete("pix");
+    searchParams.delete("t");
+
+    const nextQuery = searchParams.toString();
+    const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ""}`;
+    window.history.replaceState({}, "", nextUrl);
+
+    if (toastTimerRef.current) {
+      window.clearTimeout(toastTimerRef.current);
+    }
+
+    toastTimerRef.current = window.setTimeout(() => {
+      setPixToast({ type: "", message: "" });
+      toastTimerRef.current = null;
+    }, 6500);
+  }, []);
 
   useEffect(() => {
     const rawUser = window.localStorage.getItem("firex1:user");
@@ -74,7 +121,9 @@ export default function DashboardClient() {
 
     const loadDashboard = async () => {
       try {
-        const response = await fetch(`/api/user/dashboard/${parsedUser.id}`);
+        const response = await fetch(`/api/user/dashboard/${parsedUser.id}`, {
+          cache: "no-store"
+        });
         const data = await response.json();
 
         if (!response.ok) {
@@ -104,6 +153,10 @@ export default function DashboardClient() {
 
   useEffect(() => {
     return () => {
+      if (toastTimerRef.current) {
+        window.clearTimeout(toastTimerRef.current);
+      }
+
       if (openTimerRef.current) {
         window.clearTimeout(openTimerRef.current);
       }
@@ -313,6 +366,18 @@ export default function DashboardClient() {
               </div>
             </div>
           </header>
+
+          {pixToast.message ? (
+            <section
+              className={`${styles.pixToast} ${
+                pixToast.type === "success" ? styles.pixToastSuccess : styles.pixToastWarning
+              }`}
+              role="status"
+              aria-live="polite"
+            >
+              {pixToast.message}
+            </section>
+          ) : null}
 
           {state.loading ? <section className={styles.infoState}>Carregando dashboard...</section> : null}
           {state.error ? <section className={styles.errorState}>{state.error}</section> : null}

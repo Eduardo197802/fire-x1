@@ -1,10 +1,17 @@
 import { Sequelize } from "sequelize";
-import { up as createUsersTable } from "../migrations/001-create-users-table";
-import { up as createDisputasTable } from "../migrations/002-create-disputas-table";
-import { up as createPagamentosTable } from "../migrations/003-create-pagamentos-table";
-import defineUserModel from "../models/User";
-import defineDisputaModel from "../models/Disputa";
-import definePagamentoModel from "../models/Pagamento";
+import { up as createUsersTable } from "../migrations/001-create-users-table.js";
+import { up as createDisputasTable } from "../migrations/002-create-disputas-table.js";
+import { up as createPagamentosTable } from "../migrations/003-create-pagamentos-table.js";
+import { up as createFinancialModelTables } from "../migrations/010-create-financial-model-tables.js";
+import { up as createSaldoTrigger } from "../migrations/011-create-saldo-trigger.js";
+import { up as createFinancialViews } from "../migrations/012-create-financial-views.js";
+import defineUserModel from "../models/User.js";
+import defineDisputaModel from "../models/Disputa.js";
+import definePagamentoModel from "../models/Pagamento.js";
+import defineContaModel from "../models/Conta.js";
+import defineTransacaoModel from "../models/Transacao.js";
+import defineOperacaoModel from "../models/Operacao.js";
+import defineCaixaPlataformaModel from "../models/CaixaPlataforma.js";
 
 function toNumber(value, fallback) {
   const parsed = Number(value);
@@ -81,6 +88,10 @@ const requiredPagamentoColumns = {
 const User = defineUserModel(sequelize);
 const Disputa = defineDisputaModel(sequelize);
 const Pagamento = definePagamentoModel(sequelize);
+const Conta = defineContaModel(sequelize);
+const Transacao = defineTransacaoModel(sequelize);
+const Operacao = defineOperacaoModel(sequelize);
+const CaixaPlataforma = defineCaixaPlataformaModel(sequelize);
 
 User.hasMany(Disputa, { foreignKey: "user_id", as: "disputas" });
 Disputa.belongsTo(User, { foreignKey: "user_id", as: "user" });
@@ -90,6 +101,15 @@ Pagamento.belongsTo(User, { foreignKey: "user_id", as: "user" });
 
 Disputa.hasMany(Pagamento, { foreignKey: "disputa_id", as: "pagamentos" });
 Pagamento.belongsTo(Disputa, { foreignKey: "disputa_id", as: "disputa" });
+
+User.hasOne(Conta, { foreignKey: "user_id", as: "conta" });
+Conta.belongsTo(User, { foreignKey: "user_id", as: "usuario" });
+
+User.hasMany(Transacao, { foreignKey: "user_id", as: "transacoes" });
+Transacao.belongsTo(User, { foreignKey: "user_id", as: "usuario" });
+
+User.hasMany(Operacao, { foreignKey: "user_id", as: "operacoes" });
+Operacao.belongsTo(User, { foreignKey: "user_id", as: "usuario" });
 
 const shouldBootstrapSchema = toBoolean(process.env.DB_BOOTSTRAP_SCHEMA);
 
@@ -118,6 +138,10 @@ const initPromise = (async () => {
     await createPagamentosTable(queryInterface, Sequelize);
   }
 
+  await createFinancialModelTables(queryInterface, Sequelize);
+  await createSaldoTrigger(queryInterface, Sequelize);
+  await createFinancialViews(queryInterface, Sequelize);
+
   const usersColumns = await queryInterface.describeTable("users");
 
   for (const [columnName, definition] of Object.entries(requiredUserColumns)) {
@@ -140,8 +164,12 @@ const db = {
   User,
   Disputa,
   Pagamento,
+  Conta,
+  Transacao,
+  Operacao,
+  CaixaPlataforma,
   init: initPromise
 };
 
 export default db;
-export { sequelize, User, Disputa, Pagamento, initPromise as init };
+export { sequelize, User, Disputa, Pagamento, Conta, Transacao, Operacao, CaixaPlataforma, initPromise as init };

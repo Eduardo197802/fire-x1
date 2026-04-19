@@ -40,3 +40,8 @@ Aplicação full stack baseada em Next.js com App Router, rotas de API no própr
 - Fluxos de autenticação e sessão ainda exigem padronização completa.
 - Integração PIX precisa validação de cenário real de ponta a ponta.
 - Validações de domínio devem permanecer centralizadas e cobertas por testes.
+
+## Operação PIX em Produção
+- O certificado da Efí deve permanecer disponível no servidor de aplicação e o `EFI_CERT_PATH` deve preferir caminho absoluto em produção para evitar ambiguidades de diretório de execução.
+- Configuração validada em produção: `EFI_CERT_PATH=/home/fire-x1/application/fire-x1/Efi Bank/producao-852259-firex1.p12`.
+- Entre as variáveis `EFI_*` usadas pela integração, apenas `EFI_CERT_PATH` referencia arquivo; `EFI_CLIENT_ID`, `EFI_CLIENT_SECRET`, `EFI_PIX_KEY`, `EFI_SANDBOX` e `EFI_PIX_WEBHOOK_TOKEN` são valores escalares e não exigem ajuste de caminho.

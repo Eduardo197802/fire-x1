@@ -1,12 +1,25 @@
 import { NextResponse } from "next/server";
+import crypto from "crypto";
 import { init, Pagamento, User, sequelize } from "../../../../services/db";
 import { addMoney, isPositiveAmount, normalizeAmount } from "../../../../services/money";
 import { consumeRateLimit, getRequestClientIp } from "../../../../services/rate-limit";
+import { registrarTransacao } from "../../../../services/financeiro";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function validateWebhookAuth(request) {
+function secureTokenEquals(provided, expected) {
+  const providedBuffer = Buffer.from(String(provided || ""), "utf8");
+  const expectedBuffer = Buffer.from(String(expected || ""), "utf8");
+
+  if (providedBuffer.length !== expectedBuffer.length) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(providedBuffer, expectedBuffer);
+}
+
+function validateWebhookAuth(request, hasPixEvents) {
   const expectedToken =
     process.env.EFI_PIX_WEBHOOK_TOKEN || process.env.PIX_WEBHOOK_TOKEN || "";
 
@@ -28,15 +41,33 @@ function validateWebhookAuth(request) {
     request.headers.get("x-webhook-token") ||
     "";
 
-  if (!tokenFromHeader || tokenFromHeader !== expectedToken) {
-    return {
-      ok: false,
-      status: 401,
-      error: "Webhook PIX não autorizado."
-    };
+  if (secureTokenEquals(tokenFromHeader, expectedToken)) {
+    return { ok: true };
   }
 
-  return { ok: true };
+  const allowQueryBootstrap =
+    String(process.env.EFI_PIX_WEBHOOK_ALLOW_QUERY_BOOTSTRAP || "false").toLowerCase() ===
+    "true";
+
+  const tokenFromQuery =
+    request.nextUrl.searchParams.get("token") ||
+    request.nextUrl.searchParams.get("webhook_token") ||
+    request.nextUrl.searchParams.get("efi_webhook_token") ||
+    "";
+
+  if (
+    allowQueryBootstrap &&
+    !hasPixEvents &&
+    secureTokenEquals(tokenFromQuery, expectedToken)
+  ) {
+    return { ok: true };
+  }
+
+  return {
+    ok: false,
+    status: 401,
+    error: "Webhook PIX não autorizado."
+  };
 }
 
 function extractPixValue(pix, fallback) {
@@ -57,7 +88,16 @@ function extractPixValue(pix, fallback) {
 }
 
 export async function POST(request) {
-  const auth = validateWebhookAuth(request);
+  let body = {};
+
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Payload de webhook inválido." }, { status: 400 });
+  }
+
+  const events = Array.isArray(body?.pix) ? body.pix : [];
+  const auth = validateWebhookAuth(request, events.length > 0);
 
   if (!auth.ok) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -81,16 +121,6 @@ export async function POST(request) {
       }
     );
   }
-
-  let body = {};
-
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Payload de webhook inválido." }, { status: 400 });
-  }
-
-  const events = Array.isArray(body?.pix) ? body.pix : [];
 
   if (events.length === 0) {
     return NextResponse.json({ processed: 0, ignored: 0 });
@@ -190,6 +220,20 @@ export async function POST(request) {
 
       if (state === "processed") {
         processed += 1;
+
+        // Registrar transação no novo modelo financeiro (best-effort, não reverte crédito se falhar)
+        try {
+          await registrarTransacao({
+            userId: pagamento.user_id,
+            tipo: "DEPOSITO",
+            direcao: "entrada",
+            valor: extractPixValue(pixEvent, pagamento.valor),
+            status: "confirmado",
+            referenciaExterna: pixEvent?.txid
+          });
+        } catch (err) {
+          console.error(`[Webhook PIX] Falha ao registrar transação de depósito: ${err.message}`);
+        }
       } else {
         ignored += 1;
       }

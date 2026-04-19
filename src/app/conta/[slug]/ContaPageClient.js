@@ -2,8 +2,11 @@
 
 import Link from "next/link";
 import QRCode from "qrcode";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import styles from "./page.module.css";
+
+const PIX_QR_TTL_MS = 5 * 60 * 1000;
+const PIX_STATUS_POLL_INTERVAL_MS = 4000;
 
 const formatDate = (value) => {
   if (!value) return "-";
@@ -93,6 +96,13 @@ const parseAmountInput = (value) => {
   return Number(amount.toFixed(2));
 };
 
+const formatCountdown = (timeLeftMs) => {
+  const totalSeconds = Math.max(0, Math.ceil(timeLeftMs / 1000));
+  const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
+  const seconds = String(totalSeconds % 60).padStart(2, "0");
+  return `${minutes}:${seconds}`;
+};
+
 const resolveSessionUserId = () => {
   if (typeof window === "undefined") return null;
 
@@ -160,8 +170,26 @@ export default function ContaPageClient({ pageKey, page }) {
   const [depositQrImage, setDepositQrImage] = useState("");
   const [depositError, setDepositError] = useState("");
   const [depositMessage, setDepositMessage] = useState("");
+  const [depositDeadlineAt, setDepositDeadlineAt] = useState(0);
+  const [depositCountdownLabel, setDepositCountdownLabel] = useState("05:00");
+  const [depositMonitoring, setDepositMonitoring] = useState(false);
+  const depositRedirectedRef = useRef(false);
+
+  const redirectToDashboard = (reason) => {
+    if (typeof window === "undefined" || depositRedirectedRef.current) {
+      return;
+    }
+
+    depositRedirectedRef.current = true;
+    window.location.assign(`/dashboard?pix=${encodeURIComponent(reason)}&t=${Date.now()}`);
+  };
 
   useEffect(() => {
+    const sessionUserId = resolveSessionUserId();
+    if (sessionUserId) {
+      setUserId(sessionUserId);
+    }
+
     if (pageKey !== "meu-perfil") {
       return;
     }
@@ -244,6 +272,101 @@ export default function ContaPageClient({ pageKey, page }) {
 
     loadProfile();
   }, [pageKey]);
+
+  useEffect(() => {
+    if (pageKey !== "adicionar-fundo" || !depositData?.txid || !depositDeadlineAt) {
+      return;
+    }
+
+    const sessionUserId = Number(userId || resolveSessionUserId());
+    if (!sessionUserId) {
+      setDepositError("Sessão inválida para acompanhar o depósito PIX.");
+      return;
+    }
+
+    let cancelled = false;
+
+    const tickCountdown = () => {
+      const remainingMs = depositDeadlineAt - Date.now();
+
+      if (remainingMs <= 0) {
+        setDepositCountdownLabel("00:00");
+        setDepositMonitoring(false);
+        setDepositMessage("Tempo do QR Code encerrado. Você será redirecionado ao dashboard.");
+        redirectToDashboard("expirado");
+        return false;
+      }
+
+      setDepositCountdownLabel(formatCountdown(remainingMs));
+      return true;
+    };
+
+    const pollStatus = async () => {
+      if (cancelled || depositRedirectedRef.current) {
+        return;
+      }
+
+      const remainingMs = depositDeadlineAt - Date.now();
+      if (remainingMs <= 0) {
+        return;
+      }
+
+      try {
+        const query = new URLSearchParams({
+          userId: String(sessionUserId),
+          txid: String(depositData.txid)
+        });
+
+        const response = await fetch(`/api/pix/status?${query.toString()}`, {
+          cache: "no-store"
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          if (response.status === 401 || response.status === 403) {
+            setDepositError(data.error || "Sessão inválida. Faça login novamente.");
+            redirectToDashboard("sessao-invalida");
+          }
+          return;
+        }
+
+        if (data?.isPaid) {
+          setDepositMonitoring(false);
+          setDepositError("");
+          setDepositMessage("Pagamento confirmado. Redirecionando ao dashboard com saldo atualizado...");
+          redirectToDashboard("creditado");
+        }
+      } catch {
+        // Mantem monitoramento ativo mesmo com falhas momentaneas de rede.
+      }
+    };
+
+    setDepositMonitoring(true);
+
+    const shouldContinue = tickCountdown();
+    if (shouldContinue) {
+      pollStatus();
+    }
+
+    const countdownInterval = window.setInterval(() => {
+      const keepRunning = tickCountdown();
+      if (!keepRunning) {
+        window.clearInterval(countdownInterval);
+        window.clearInterval(pollInterval);
+      }
+    }, 1000);
+
+    const pollInterval = window.setInterval(() => {
+      pollStatus();
+    }, PIX_STATUS_POLL_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(countdownInterval);
+      window.clearInterval(pollInterval);
+    };
+  }, [pageKey, depositData, depositDeadlineAt, userId]);
 
   const accountMeta = useMemo(() => {
     if (!state.profile) {
@@ -794,10 +917,15 @@ export default function ContaPageClient({ pageKey, page }) {
       setDepositMessage("");
       setDepositData(null);
       setDepositQrImage("");
+      setDepositMonitoring(false);
+      setDepositCountdownLabel("05:00");
+      setDepositDeadlineAt(0);
+      depositRedirectedRef.current = false;
 
       const response = await fetch("/api/pix/gerar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        cache: "no-store",
         body: JSON.stringify({ userId: sessionUserId, valor })
       });
 
@@ -810,6 +938,9 @@ export default function ContaPageClient({ pageKey, page }) {
       setDepositData(data);
       setDepositQrImage(await resolveDepositQrImage(data));
       setDepositMessage("Depósito PIX gerado com sucesso.");
+      setDepositDeadlineAt(Date.now() + PIX_QR_TTL_MS);
+      setDepositMonitoring(true);
+      setUserId(sessionUserId);
     } catch (error) {
       setDepositError(error.message);
     } finally {
@@ -900,6 +1031,10 @@ export default function ContaPageClient({ pageKey, page }) {
             {depositData ? (
               <div className={styles.tabPanelForm}>
                 <p className={styles.tabHelper}>Use o QR Code ou copie o código Pix para concluir o pagamento.</p>
+                <p className={styles.infoMessage}>
+                  Tempo restante nesta tela: <strong>{depositCountdownLabel}</strong>
+                  {depositMonitoring ? " (aguardando confirmação de pagamento)" : ""}
+                </p>
                 {depositQrImage ? (
                   <div className={styles.qrCodeCard}>
                     <img className={styles.qrCodeImage} src={depositQrImage} alt="QR Code Pix" />
