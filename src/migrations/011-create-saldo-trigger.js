@@ -1,4 +1,17 @@
 export async function up(queryInterface) {
+  // Limpa artefatos legados para evitar conflito de assinatura/nome de parametro em CREATE OR REPLACE FUNCTION.
+  await queryInterface.sequelize.query(`
+    DROP TRIGGER IF EXISTS tg_transacoes_recalcular_saldo ON transacoes;
+  `);
+
+  await queryInterface.sequelize.query(`
+    DROP FUNCTION IF EXISTS trg_transacoes_recalcular_saldo();
+  `);
+
+  await queryInterface.sequelize.query(`
+    DROP FUNCTION IF EXISTS fn_recalcular_saldo_conta(BIGINT);
+  `);
+
   // Function que recalcula e faz upsert em contas para um dado usuario_id
   await queryInterface.sequelize.query(`
     CREATE OR REPLACE FUNCTION fn_recalcular_saldo_conta(p_usuario_id BIGINT)
@@ -48,10 +61,6 @@ export async function up(queryInterface) {
   `);
 
   // Trigger na tabela transacoes
-  await queryInterface.sequelize.query(`
-    DROP TRIGGER IF EXISTS tg_transacoes_recalcular_saldo ON transacoes;
-  `);
-
   await queryInterface.sequelize.query(`
     CREATE TRIGGER tg_transacoes_recalcular_saldo
     AFTER INSERT OR UPDATE OR DELETE ON transacoes

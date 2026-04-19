@@ -1,0 +1,354 @@
+.panel {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  padding: 16px;
+  display: grid;
+  gap: 14px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.header h2 {
+  margin: 0;
+  font-family: var(--font-display), sans-serif;
+  font-size: 22px;
+}
+
+.header p {
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.btnRefresh {
+  min-height: 42px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  color: #190b02;
+  background: linear-gradient(135deg, #ffd1a5 0%, var(--accent) 100%);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btnRefresh:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.searchBox {
+  display: grid;
+}
+
+.searchBox input {
+  min-height: 42px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  padding: 0 12px;
+  font-size: 14px;
+}
+
+.tableContainer {
+  overflow-x: auto;
+}
+
+.table {
+  display: grid;
+  gap: 1px;
+  background: var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.headerRow,
+.row {
+  display: grid;
+  grid-template-columns: 60px 1fr 120px 120px 80px;
+  gap: 0;
+  background: var(--panel);
+}
+
+.headerRow {
+  background: rgba(255, 163, 76, 0.1);
+  border-bottom: 2px solid var(--accent-soft);
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent-soft);
+}
+
+.headerCell,
+.cell {
+  padding: 12px 10px;
+  display: flex;
+  align-items: center;
+}
+
+.emailBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.emailBlock strong {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.emailBlock small {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badgeActive {
+  background: rgba(141, 242, 176, 0.2);
+  color: #8df2b0;
+  border: 1px solid rgba(141, 242, 176, 0.4);
+}
+
+.badgeInactive {
+  background: rgba(247, 116, 83, 0.2);
+  color: #f77453;
+  border: 1px solid rgba(247, 116, 83, 0.4);
+}
+
+.btnEdit {
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.02);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btnEdit:hover {
+  border-color: var(--accent);
+  background: rgba(255, 163, 76, 0.1);
+  color: var(--accent);
+}
+
+.emptyState {
+  padding: 24px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.errorBox {
+  border-radius: 12px;
+  padding: 12px;
+  color: #ffd8d1;
+  background: rgba(247, 116, 83, 0.12);
+  border: 1px solid rgba(247, 116, 83, 0.4);
+}
+
+/* Modal */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 14px;
+}
+
+.modal {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  max-width: 500px;
+  width: 100%;
+  max-height: 90dvh;
+  overflow-y: auto;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+}
+
+.modalHeader {
+  padding: 16px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modalHeader h2 {
+  margin: 0;
+  font-family: var(--font-display), sans-serif;
+}
+
+.btnClose {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.btnClose:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.modalContent {
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.field label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.field input {
+  min-height: 40px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text);
+  padding: 0 12px;
+  font-size: 14px;
+}
+
+.field input:disabled {
+  opacity: 0.6;
+}
+
+.fieldCheckbox {
+  display: grid;
+  gap: 6px;
+}
+
+.fieldCheckbox label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  text-transform: none;
+  cursor: pointer;
+}
+
+.fieldCheckbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
+.hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.modalFooter {
+  padding: 16px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.btnSecondary,
+.btnPrimary {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btnSecondary {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.btnSecondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.btnPrimary {
+  color: #190b02;
+  background: linear-gradient(135deg, #ffd1a5 0%, var(--accent) 100%);
+  border: 1px solid transparent;
+}
+
+.btnPrimary:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.btnSecondary:disabled,
+.btnPrimary:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+@media (max-width: 960px) {
+  .headerRow,
+  .row {
+    grid-template-columns: 50px 1fr 100px 100px 70px;
+  }
+}
+
+@media (max-width: 640px) {
+  .header {
+    flex-direction: column;
+  }
+
+  .headerRow,
+  .row {
+    grid-template-columns: 40px 1fr 80px 80px 60px;
+    font-size: 12px;
+  }
+
+  .modal {
+    max-width: 100%;
+    border-radius: 16px;
+  }
+}

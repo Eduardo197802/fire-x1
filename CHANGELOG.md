@@ -117,3 +117,19 @@ Todas as mudanças relevantes deste projeto devem ser registradas neste arquivo.
 - Monitorar volume de transações em produção; avaliar desnormalização se overhead de trigger for alto.
 - Após 1 mês de operação, migrar dados históricos de `pagamentos` para `transacoes` e deprecar coluna (Spec 005).
 - Expandir endpoints admin com autenticação de 2FA (já validada), exportação PDF/Excel (Spec 004 mencionava, descopo neste checkpoint).
+
+## 2026-04-19 (Fase 6 - Hardening Login Admin)
+- Implementado fluxo de autenticação administrativa em duas etapas com `POST /api/admin/auth/login` (senha forte + envio de código 2FA por e-mail) e `POST /api/admin/auth/verify` (validação do código e liberação de sessão admin).
+- Criado `src/services/admin-session.js` com cookies HttpOnly `firex1_admin_pending` (curta duração) e `firex1_admin_session` (sessão administrativa), ambos assinados por HMAC e com `SameSite=Strict`.
+- Adicionados endpoints `GET /api/admin/auth/session` e `POST /api/admin/auth/logout` para validação de sessão ativa e encerramento seguro.
+- `src/services/admin-auth.js` evoluído para aceitar sessão admin autenticada por 2FA sem exigir token manual no frontend, mantendo fallback legado com token operacional para compatibilidade.
+- Página `src/app/admin/financeiro/AdminFinanceiroClient.js` refatorada para exibir tela de login admin + etapa de código 2FA e liberar relatórios automaticamente após autenticação.
+- Estilos da UI admin atualizados em `src/app/admin/financeiro/page.module.css` para novo fluxo de acesso seguro.
+- Risco residual: rate limit está em memória de processo (`src/services/rate-limit.js`), exigindo backend compartilhado (Redis) em cenário multi-instância para proteção distribuída.
+
+## 2026-04-19 (Fase 7 - Centralizacao Admin com Abas)
+- Criado layout compartilhado em `src/app/admin/layout.js` com navegação por abas para todas as áreas administrativas.
+- Implementado componente cliente de abas em `src/app/admin/AdminTabs.js` com destaque de rota ativa.
+- Adicionado redirecionamento de entrada em `src/app/admin/page.js` para `admin/financeiro`.
+- Criadas novas páginas base dentro de admin: `usuarios`, `pix`, `transacoes`, `caixa`, `seguranca` e `relatorios`.
+- Adicionados estilos comuns para seções administrativas em `src/app/admin/section.module.css` e estilos de navegação em `src/app/admin/layout.module.css`.

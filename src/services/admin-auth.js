@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { init, User } from "./db.js";
 import { extractSessionToken, decodeAuthToken } from "./session-auth.js";
+import { extractAdminSessionToken, decodeAdminSessionToken } from "./admin-session.js";
 
 export const parseAllowedOperatorIds = () => {
   const raw = String(process.env.ADMIN_FINANCEIRO_ALLOWED_USER_IDS || "");
@@ -31,29 +32,38 @@ function safeCompare(provided, expected) {
 }
 
 export const authenticateAdminRequest = async (request) => {
-  // Validar sessão
-  const sessionToken = extractSessionToken(request);
+  const adminSessionToken = extractAdminSessionToken(request);
+  const decodedAdminSession = decodeAdminSessionToken(adminSessionToken);
+  const usesAdminSession = Boolean(decodedAdminSession?.userId);
 
-  if (!sessionToken) {
-    return {
-      ok: false,
-      status: 401,
-      error: "Sessão inválida ou expirada. Faça login novamente."
-    };
-  }
+  let operatorId = Number(decodedAdminSession?.userId || 0);
 
-  const decodedSession = decodeAuthToken(sessionToken);
+  if (!usesAdminSession) {
+    // Fallback legado: sessão do usuário + token operacional
+    const sessionToken = extractSessionToken(request);
 
-  if (!decodedSession?.userId) {
-    return {
-      ok: false,
-      status: 401,
-      error: "Sessão inválida ou expirada. Faça login novamente."
-    };
+    if (!sessionToken) {
+      return {
+        ok: false,
+        status: 401,
+        error: "Sessão inválida ou expirada. Faça login novamente."
+      };
+    }
+
+    const decodedSession = decodeAuthToken(sessionToken);
+
+    if (!decodedSession?.userId) {
+      return {
+        ok: false,
+        status: 401,
+        error: "Sessão inválida ou expirada. Faça login novamente."
+      };
+    }
+
+    operatorId = Number(decodedSession.userId);
   }
 
   // Validar ID na allowlist
-  const operatorId = Number(decodedSession.userId);
   const allowedOperatorIds = parseAllowedOperatorIds();
 
   if (!allowedOperatorIds.has(operatorId)) {
@@ -64,28 +74,30 @@ export const authenticateAdminRequest = async (request) => {
     };
   }
 
-  // Validar token operacional
-  const adminToken = getAdminToken();
+  // Fluxo legado exige token operacional; fluxo de sessão admin já passou por senha + 2FA.
+  if (!usesAdminSession) {
+    const adminToken = getAdminToken();
 
-  if (!adminToken) {
-    return {
-      ok: false,
-      status: 500,
-      error: "Configuração de segurança de admin ausente."
-    };
-  }
+    if (!adminToken) {
+      return {
+        ok: false,
+        status: 500,
+        error: "Configuração de segurança de admin ausente."
+      };
+    }
 
-  const providedToken =
-    request.headers.get("x-admin-financeiro-token") ||
-    request.headers.get("x-admin-token") ||
-    "";
+    const providedToken =
+      request.headers.get("x-admin-financeiro-token") ||
+      request.headers.get("x-admin-token") ||
+      "";
 
-  if (!safeCompare(providedToken, adminToken)) {
-    return {
-      ok: false,
-      status: 401,
-      error: "Token de administrador inválido."
-    };
+    if (!safeCompare(providedToken, adminToken)) {
+      return {
+        ok: false,
+        status: 401,
+        error: "Token de administrador inválido."
+      };
+    }
   }
 
   // Validar atributos do usuário
