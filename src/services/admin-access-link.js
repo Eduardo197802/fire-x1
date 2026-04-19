@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { QueryTypes } from "sequelize";
-import { init, sequelize, User } from "./db.js";
-import { parseAllowedOperatorIds } from "./admin-auth.js";
+import { init, sequelize } from "./db.js";
+import { findActiveAdminByEmail } from "./admin-users.js";
 import { sendAdminAccessLinkEmail } from "./email";
 
 const ACCESS_LINK_TTL_MINUTES = 10;
@@ -29,27 +29,15 @@ const resolveBaseUrl = (request) => {
 };
 
 const ensureAuthorizedAdminByEmail = async (email) => {
-  const user = await User.findOne({
-    where: { email },
-    attributes: ["id", "email", "nome", "conta_liberada", "two_factor_enabled"],
-    raw: true
-  });
-
-  if (!user) {
-    return null;
-  }
-
-  const allowedOperatorIds = parseAllowedOperatorIds();
-  const isAllowed = allowedOperatorIds.has(Number(user.id));
-
-  if (!isAllowed || !user.conta_liberada || !user.two_factor_enabled) {
+  const admin = await findActiveAdminByEmail(email);
+  if (!admin) {
     return null;
   }
 
   return {
-    id: Number(user.id),
-    email: toLowerTrim(user.email),
-    nome: user.nome || user.email || "Administrador"
+    id: Number(admin.id),
+    email: toLowerTrim(admin.email),
+    nome: admin.nome || admin.email || "Administrador"
   };
 };
 
@@ -138,7 +126,7 @@ export const consumeAdminAccessLinkToken = async (token) => {
     return null;
   }
 
-  const admin = await ensureAuthorizedAdminByEmail(email);
+  const admin = await findActiveAdminByEmail(email);
   if (!admin) {
     return null;
   }

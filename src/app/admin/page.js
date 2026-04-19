@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import AdminRequestAccessClient from "./AdminRequestAccessClient";
 
 export default function AdminPage() {
-  redirect("/admin/financeiro");
+  return <AdminRequestAccessClient />;
 }

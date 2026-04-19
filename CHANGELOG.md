@@ -141,3 +141,14 @@ Todas as mudanças relevantes deste projeto devem ser registradas neste arquivo.
 - Adicionado serviço `src/services/admin-access-link.js` para geração de token seguro (`crypto.randomBytes`), armazenamento por hash SHA-256 e validação de autorização do administrador antes do envio.
 - Adicionada migration `src/migrations/013-create-admin-access-links.js` para tabela `admin_access_links` com índices por e-mail, expiração e uso.
 - Serviço de e-mail evoluído em `src/services/email.js` com envio de link administrativo (`sendAdminAccessLinkEmail`).
+
+## 2026-04-19 (Fase 9 - Fluxo Admin 100% por Rotas Dedicadas)
+- `GET /admin` convertido para página pública de solicitação de acesso em `src/app/admin/page.js` + `src/app/admin/AdminRequestAccessClient.js`, sem exibir dashboard ou dados internos.
+- Criada rota dedicada `POST /admin/solicitar-link` em `src/app/admin/solicitar-link/route.js` com validação por base de administradores ativos, rate limit de 3 por minuto por IP e resposta neutra.
+- `GET /admin/acesso/:token` ajustado para redirecionar ao login dedicado (`/admin/login`) após validar token temporário, expiração e uso único.
+- Criadas rotas dedicadas `POST /admin/login` e `POST /admin/2fa` em `src/app/admin/login/route.js` e `src/app/admin/2fa/route.js`, com checkpoints estritos de sessão temporária e ordem de fluxo.
+- Criadas páginas dedicadas `GET /admin/login`, `GET /admin/2fa` e `GET /admin/dashboard` com validação de fluxo via `src/app/api/admin/auth/flow-state/route.js` e sessão final.
+- Implementada base de administradores `usuarios_admin` e trilha de auditoria `admin_access_logs` na migration `src/migrations/014-create-admin-users-and-logs.js`.
+- Regras de autorização admin migradas para `usuarios_admin` ativo + `twofa_ativo`, removendo dependência da allowlist legada para o fluxo principal de painel.
+- Implementado TOTP compatível com Google Authenticator em `src/services/admin-totp.js` e integrado ao endpoint de validação 2FA.
+- Criado serviço `src/services/admin-users.js` para leitura de administradores ativos e gravação de logs de acesso/login/2FA.

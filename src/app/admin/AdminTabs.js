@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import styles from "./layout.module.css";
 
 const TABS = [
+  { href: "/admin/dashboard", label: "Dashboard" },
   { href: "/admin/financeiro", label: "Financeiro" },
   { href: "/admin/usuarios", label: "Usuarios" },
   { href: "/admin/pix", label: "PIX" },

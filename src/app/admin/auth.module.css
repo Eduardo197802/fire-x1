@@ -1,0 +1,62 @@
+.authWrap {
+  max-width: 520px;
+  margin: 40px auto;
+  background: #111827;
+  color: #f3f4f6;
+  border-radius: 14px;
+  padding: 22px;
+  border: 1px solid #1f2937;
+}
+
+.authWrap h1 {
+  margin: 0 0 8px;
+  font-size: 1.4rem;
+}
+
+.authWrap p {
+  margin: 0 0 16px;
+  color: #cbd5e1;
+}
+
+.form {
+  display: grid;
+  gap: 12px;
+}
+
+.form input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #334155;
+  background: #0b1220;
+  color: #f8fafc;
+}
+
+.btn {
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  background: #22c55e;
+  color: #052e16;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.error {
+  color: #fca5a5;
+  font-size: 0.95rem;
+}
+
+.ok {
+  color: #86efac;
+  font-size: 0.95rem;
+}
+
+.linkRow {
+  margin-top: 12px;
+}

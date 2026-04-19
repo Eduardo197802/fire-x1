@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { init, User } from "../../../../../services/db";
-import { parseAllowedOperatorIds } from "../../../../../services/admin-auth";
 import {
   decodeAdminSessionToken,
   extractAdminSessionToken
 } from "../../../../../services/admin-session";
+import { findActiveAdminById, recordAdminAccessLog } from "../../../../../services/admin-users";
+import { getRequestClientIp } from "../../../../../services/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,25 +19,22 @@ export async function GET(request) {
     return json({ error: "Sessão administrativa inválida ou expirada." }, 401);
   }
 
-  await init;
-
-  const user = await User.findByPk(Number(decoded.userId), {
-    attributes: ["id", "nome", "email", "conta_liberada", "two_factor_enabled"],
-    raw: true
-  });
+  const user = await findActiveAdminById(Number(decoded.userId));
 
   if (!user) {
-    return json({ error: "Usuário administrativo não encontrado." }, 404);
+    return json({ error: "Administrador não encontrado ou inativo." }, 403);
   }
 
-  const allowedOperatorIds = parseAllowedOperatorIds();
-  if (!allowedOperatorIds.has(Number(user.id))) {
-    return json({ error: "Usuário não autorizado para administração." }, 403);
-  }
-
-  if (!user.conta_liberada || !user.two_factor_enabled) {
+  if (!user.twofa_ativo) {
     return json({ error: "Conta sem requisitos de segurança para acesso administrativo." }, 403);
   }
+
+  await recordAdminAccessLog({
+    adminId: user.id,
+    acao: "sessao.validar",
+    detalhe: "Sessão administrativa validada.",
+    ip: getRequestClientIp(request)
+  }).catch(() => {});
 
   return json({
     success: true,

@@ -1,9 +1,11 @@
 import crypto from "crypto";
 
 const ADMIN_PENDING_TTL_MINUTES = 10;
+const ADMIN_LOGIN_TTL_MINUTES = 10;
 const ADMIN_SESSION_TTL_MINUTES = 30;
 
 export const ADMIN_PENDING_COOKIE_NAME = "firex1_admin_pending";
+export const ADMIN_LOGIN_COOKIE_NAME = "firex1_admin_login";
 export const ADMIN_SESSION_COOKIE_NAME = "firex1_admin_session";
 
 const resolveAdminSessionSecret = () =>
@@ -101,6 +103,9 @@ const buildCookieOptions = (maxAgeSeconds) => ({
 export const encodeAdminPendingToken = (userId) => encodeToken(userId, ADMIN_PENDING_TTL_MINUTES);
 export const decodeAdminPendingToken = (token) => decodeToken(token);
 
+export const encodeAdminLoginToken = (userId) => encodeToken(userId, ADMIN_LOGIN_TTL_MINUTES);
+export const decodeAdminLoginToken = (token) => decodeToken(token);
+
 export const encodeAdminSessionToken = (userId) => encodeToken(userId, ADMIN_SESSION_TTL_MINUTES);
 export const decodeAdminSessionToken = (token) => decodeToken(token);
 
@@ -110,7 +115,11 @@ export const extractAdminSessionToken = (request) =>
 export const extractAdminPendingToken = (request) =>
   request.cookies.get(ADMIN_PENDING_COOKIE_NAME)?.value || "";
 
+export const extractAdminLoginToken = (request) =>
+  request.cookies.get(ADMIN_LOGIN_COOKIE_NAME)?.value || "";
+
 export const getAdminPendingCookieOptions = () => buildCookieOptions(ADMIN_PENDING_TTL_MINUTES * 60);
+export const getAdminLoginCookieOptions = () => buildCookieOptions(ADMIN_LOGIN_TTL_MINUTES * 60);
 export const getAdminSessionCookieOptions = () => buildCookieOptions(ADMIN_SESSION_TTL_MINUTES * 60);
 
 export const clearAdminCookieOptions = () => buildCookieOptions(0);

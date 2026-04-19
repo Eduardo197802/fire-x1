@@ -10,7 +10,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const buildRedirect = (request, status) => {
-  const url = new URL("/admin/financeiro", request.url);
+  const url = new URL("/admin/login", request.url);
   url.searchParams.set("link", status);
   return url;
 };
