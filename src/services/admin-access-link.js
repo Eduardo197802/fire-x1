@@ -15,17 +15,24 @@ const hashToken = (token) => crypto.createHash("sha256").update(String(token || 
 const generateRawToken = () => crypto.randomBytes(32).toString("hex");
 
 const resolveBaseUrl = (request) => {
+  const host = request?.headers?.get("host") || "localhost:3000";
+  const proto = request?.headers?.get("x-forwarded-proto") || "http";
+  const requestBaseUrl = `${proto}://${host}`.replace(/^https?:\/\/www\./i, "https://");
+  const isLocalRequest = /^(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i.test(host);
+
+  if (isLocalRequest) {
+    return requestBaseUrl;
+  }
+
   const configured = String(
     process.env.ADMIN_APP_BASE_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || ""
   ).trim();
 
   if (configured) {
-    return configured.replace(/\/$/, "");
+    return configured.replace(/\/$/, "").replace(/^https?:\/\/www\./i, "https://");
   }
 
-  const host = request?.headers?.get("host") || "localhost:3000";
-  const proto = request?.headers?.get("x-forwarded-proto") || "http";
-  return `${proto}://${host}`;
+  return requestBaseUrl;
 };
 
 const ensureAuthorizedAdminByEmail = async (email) => {
@@ -72,7 +79,15 @@ export const requestAdminAccessLink = async ({ email, request }) => {
     }
   );
 
+  console.warn(
+    `Admin access link criado email=${authorizedAdmin.email} hash=${tokenHash.slice(0, 12)}... ttl=${ACCESS_LINK_TTL_MINUTES}m`
+  );
+
   const linkUrl = `${resolveBaseUrl(request)}/admin/acesso/${rawToken}`;
+
+  if (process.env.NODE_ENV !== "production") {
+    console.warn(`Admin access link dev url=${linkUrl}`);
+  }
 
   await sendAdminAccessLinkEmail({
     to: authorizedAdmin.email,
@@ -91,6 +106,7 @@ export const requestAdminAccessLink = async ({ email, request }) => {
 export const consumeAdminAccessLinkToken = async (token) => {
   const rawToken = String(token || "").trim();
   if (!rawToken) {
+    console.warn("Admin access link vazio ou ausente.");
     return null;
   }
 
@@ -98,28 +114,48 @@ export const consumeAdminAccessLinkToken = async (token) => {
 
   const tokenHash = hashToken(rawToken);
 
+  // Nao marcamos o link como usado aqui para evitar invalidez causada
+  // por prefetch/scanners de e-mail que acessam o link automaticamente.
   const [consumed] = await sequelize.query(
     `
-      WITH candidate AS (
-        SELECT id, email
-        FROM admin_access_links
-        WHERE token_hash = :tokenHash
-          AND usado = false
-          AND expira_em > NOW()
-        ORDER BY id DESC
-        LIMIT 1
-      )
-      UPDATE admin_access_links a
-      SET usado = true
-      FROM candidate c
-      WHERE a.id = c.id
-      RETURNING c.email
+      SELECT email
+      FROM admin_access_links
+      WHERE token_hash = :tokenHash
+        AND expira_em > NOW()
+      ORDER BY id DESC
+      LIMIT 1
     `,
     {
       replacements: { tokenHash },
       type: QueryTypes.SELECT
     }
   );
+
+  if (!consumed?.email) {
+    const [existingToken] = await sequelize.query(
+      `
+        SELECT id, email, expira_em, usado
+        FROM admin_access_links
+        WHERE token_hash = :tokenHash
+        ORDER BY id DESC
+        LIMIT 1
+      `,
+      {
+        replacements: { tokenHash },
+        type: QueryTypes.SELECT
+      }
+    );
+
+    if (!existingToken) {
+      console.warn(`Admin access link nao encontrado para hash ${tokenHash.slice(0, 12)}...`);
+    } else {
+      const expired = Number(new Date(existingToken.expira_em)) <= Date.now();
+      console.warn(
+        `Admin access link rejeitado id=${existingToken.id} expired=${expired} usado=${Boolean(existingToken.usado)}`
+      );
+    }
+    return null;
+  }
 
   const email = toLowerTrim(consumed?.email || "");
   if (!email) {
@@ -128,12 +164,30 @@ export const consumeAdminAccessLinkToken = async (token) => {
 
   const admin = await findActiveAdminByEmail(email);
   if (!admin) {
+    console.warn(`Admin access link sem admin ativo para email=${email}`);
     return null;
   }
+
+  console.warn(`Admin access link aceito email=${email} hash=${tokenHash.slice(0, 12)}...`);
 
   return {
     userId: admin.id,
     email: admin.email,
     nome: admin.nome
+  };
+};
+
+export const validateAdminAccessLink = async (token) => {
+  const consumed = await consumeAdminAccessLinkToken(token);
+
+  if (!consumed?.userId) {
+    return { ok: false };
+  }
+
+  return {
+    ok: true,
+    userId: consumed.userId,
+    email: consumed.email,
+    nome: consumed.nome
   };
 };

@@ -18,6 +18,10 @@ jest.mock("@/services/pix", () => ({
   sendPixWithdraw: jest.fn(),
 }));
 
+jest.mock("@/services/financeiro", () => ({
+  registrarTransacao: jest.fn().mockResolvedValue({ id: 1 }),
+}));
+
 describe("POST /api/pix/saque", () => {
   const createToken = (userId, expiresAt = Date.now() + 60_000) => {
     const payload = `${userId}.${expiresAt}`;

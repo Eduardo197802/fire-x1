@@ -1,13 +1,18 @@
-import pg from "/home/fire-x1/application/fire-x1/node_modules/pg/lib/index.js";
+import dotenv from "dotenv";
+import pg from "pg";
+
+dotenv.config();
+
 const { Client } = pg;
 
 const client = new Client({
-  host: "localhost",
-  port: 5432,
-  database: "firex1db",
-  user: "postgres",
-  password: "7eYxRc4eAskRQDDYV3wF",
-  ssl: false,
+  connectionString: process.env.DATABASE_URL,
+  host: process.env.DATABASE_URL ? undefined : process.env.DB_HOST || "localhost",
+  port: process.env.DATABASE_URL ? undefined : Number(process.env.DB_PORT || 5432),
+  database: process.env.DATABASE_URL ? undefined : process.env.DB_NAME || "firex1db",
+  user: process.env.DATABASE_URL ? undefined : process.env.DB_USER || "postgres",
+  password: process.env.DATABASE_URL ? undefined : process.env.DB_PASSWORD,
+  ssl: String(process.env.DB_SSL || "false").toLowerCase() === "true" ? { rejectUnauthorized: false } : false,
 });
 
 async function run() {

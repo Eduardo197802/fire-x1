@@ -10,6 +10,24 @@ function toBoolean(value) {
 }
 
 function buildConfig(prefix, defaults) {
+  if (prefix === "DB" && process.env.DATABASE_URL) {
+    const sslEnabled = toBoolean(process.env.DB_SSL);
+
+    return {
+      url: process.env.DATABASE_URL,
+      dialect: "postgres",
+      logging: false,
+      dialectOptions: sslEnabled
+        ? {
+            ssl: {
+              require: true,
+              rejectUnauthorized: false,
+            },
+          }
+        : {},
+    };
+  }
+
   const host = process.env[`${prefix}_HOST`] || defaults.host;
   const port = toNumber(process.env[`${prefix}_PORT`], defaults.port);
   const database = process.env[`${prefix}_NAME`] || defaults.database;

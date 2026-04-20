@@ -2,16 +2,26 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import styles from "./page.module.css";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
+
+  const resolveRedirectTarget = () => {
+    const requested = typeof window === "undefined"
+      ? ""
+      : String(new URLSearchParams(window.location.search).get("redirect") || "").trim();
+
+    if (!requested.startsWith("/")) {
+      return "/dashboard";
+    }
+
+    return requested;
+  };
 
   const onSubmit = async (event) => {
     event.preventDefault();
@@ -53,7 +63,7 @@ export default function LoginPage() {
       );
       setIsError(false);
       setMessage("Login realizado com sucesso.");
-      router.push("/dashboard");
+      window.location.assign(resolveRedirectTarget());
     } catch (error) {
       setIsError(true);
       setMessage(error.message || "Erro ao autenticar.");

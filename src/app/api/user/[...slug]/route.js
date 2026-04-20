@@ -1,14 +1,15 @@
 import bcrypt from "bcryptjs";
 import { Op } from "sequelize";
 import { NextResponse } from "next/server";
-import { init, User, Disputa } from "../../../../services/db";
+import { init, User, Disputa, Pagamento, Transacao } from "../../../../services/db";
 import { buildUserRateLimitKey, consumeRateLimit, getRequestClientIp } from "../../../../services/rate-limit";
 import {
   SESSION_COOKIE_NAME,
   authenticateUserRequest,
   clearSessionCookieOptions,
   encodeAuthToken,
-  getSessionCookieOptions
+  getSessionCookieOptions,
+  hasAuthSecret
 } from "../../../../services/session-auth";
 import {
   sendBetNotificationEmail,
@@ -286,6 +287,15 @@ const postLogin = async (body) => {
       return json({ error: "E-mail ou senha incorretos." }, 401);
     }
 
+    if (!hasAuthSecret()) {
+      return json({ error: "Configuracao ausente de segredo de sessao." }, 500);
+    }
+
+    const sessionToken = encodeAuthToken(user.id);
+    if (!sessionToken) {
+      return json({ error: "Nao foi possivel iniciar sessao." }, 500);
+    }
+
     const response = json({
       id: user.id,
       nome: user.nome,
@@ -293,7 +303,7 @@ const postLogin = async (body) => {
       saldo: user.saldo
     });
 
-    response.cookies.set(SESSION_COOKIE_NAME, encodeAuthToken(user.id), getSessionCookieOptions());
+    response.cookies.set(SESSION_COOKIE_NAME, sessionToken, getSessionCookieOptions());
     return response;
   } catch {
     return json({ error: "Erro ao consultar conta." }, 500);
@@ -1234,6 +1244,151 @@ const getPerfil = async (userId) => {
   }
 };
 
+const getFatura = async (userId) => {
+  if (!userId) {
+    return json({ error: "Usuário inválido." }, 400);
+  }
+
+  let historicoPagamentos = [];
+  let historicoTransacoes = [];
+
+  try {
+    historicoPagamentos = await Pagamento.findAll({
+      where: { user_id: userId },
+      attributes: [
+        "id",
+        "tipo",
+        "metodo",
+        "status",
+        "valor",
+        "txid",
+        "efi_end_to_end_id",
+        "chave_pix_destino",
+        "created_at",
+        "processado_em",
+        "webhook_recebido_em",
+        "descricao",
+        "origem"
+      ],
+      order: [["id", "DESC"]],
+      limit: 80,
+      raw: true
+    });
+  } catch {
+    // Mantém a rota operacional mesmo sem a estrutura legada de pagamentos.
+  }
+
+  try {
+    historicoTransacoes = await Transacao.findAll({
+      where: { user_id: userId },
+      attributes: [
+        "id",
+        "tipo",
+        "direcao",
+        "status",
+        "valor",
+        "referencia_externa",
+        "observacao",
+        "criado_em"
+      ],
+      order: [["criado_em", "DESC"]],
+      limit: 120,
+      raw: true
+    });
+  } catch {
+    // Mantém a rota operacional mesmo sem a tabela de transações.
+  }
+
+  const entradasConfirmadas = historicoTransacoes.filter(
+    (item) => String(item.status || "").toLowerCase() === "confirmado" && String(item.direcao || "").toLowerCase() === "entrada"
+  );
+  const saidasConfirmadas = historicoTransacoes.filter(
+    (item) => String(item.status || "").toLowerCase() === "confirmado" && String(item.direcao || "").toLowerCase() === "saida"
+  );
+
+  const totalEntradasTransacoes = entradasConfirmadas.reduce((acc, item) => acc + Number(item.valor || 0), 0);
+  const totalSaidasTransacoes = saidasConfirmadas.reduce((acc, item) => acc + Number(item.valor || 0), 0);
+
+  const pagamentosDeposito = historicoPagamentos.filter((item) => {
+    const tipo = String(item.tipo || "").toLowerCase();
+    const status = String(item.status || "").toLowerCase();
+    return tipo === "deposito" && ["creditado", "concluido"].includes(status);
+  });
+
+  const pagamentosSaque = historicoPagamentos.filter((item) => {
+    const tipo = String(item.tipo || "").toLowerCase();
+    const status = String(item.status || "").toLowerCase();
+    return tipo === "saque" && ["creditado", "concluido"].includes(status);
+  });
+
+  const totalEntradasPagamentos = pagamentosDeposito.reduce((acc, item) => acc + Number(item.valor || 0), 0);
+  const totalSaidasPagamentos = pagamentosSaque.reduce((acc, item) => acc + Number(item.valor || 0), 0);
+
+  const usarBaseTransacoes = historicoTransacoes.length > 0;
+  const totalEntradas = usarBaseTransacoes ? totalEntradasTransacoes : totalEntradasPagamentos;
+  const totalSaidas = usarBaseTransacoes ? totalSaidasTransacoes : totalSaidasPagamentos;
+
+  const cobrancas = historicoTransacoes
+    .filter((item) => String(item.direcao || "").toLowerCase() === "saida")
+    .slice(0, 20)
+    .map((item) => ({
+      id: item.id,
+      tipo: item.tipo,
+      status: item.status,
+      valor: Number(item.valor || 0),
+      referencia: item.referencia_externa || "",
+      observacao: item.observacao || "",
+      criadoEm: item.criado_em
+    }));
+
+  const comprovantes = historicoPagamentos
+    .filter((item) => {
+      const status = String(item.status || "").toLowerCase();
+      return ["creditado", "concluido"].includes(status);
+    })
+    .slice(0, 25)
+    .map((item) => ({
+      id: item.id,
+      tipo: item.tipo,
+      status: item.status,
+      valor: Number(item.valor || 0),
+      txid: item.txid || "",
+      endToEndId: item.efi_end_to_end_id || "",
+      metodo: item.metodo || "",
+      criadoEm: item.created_at,
+      processadoEm: item.processado_em || item.webhook_recebido_em || ""
+    }));
+
+  return json({
+    resumo: {
+      totalEntradas: Number(totalEntradas.toFixed(2)),
+      totalSaidas: Number(totalSaidas.toFixed(2)),
+      saldoLiquido: Number((totalEntradas - totalSaidas).toFixed(2)),
+      pagamentosPendentes: historicoPagamentos.filter((item) => {
+        const status = String(item.status || "").toLowerCase();
+        return ["pendente", "em_processamento"].includes(status);
+      }).length,
+      comprovantesEmitidos: comprovantes.length
+    },
+    cobrancas,
+    historicoPagamentos: historicoPagamentos.map((item) => ({
+      id: item.id,
+      tipo: item.tipo,
+      metodo: item.metodo,
+      status: item.status,
+      valor: Number(item.valor || 0),
+      txid: item.txid || "",
+      endToEndId: item.efi_end_to_end_id || "",
+      chavePixDestino: item.chave_pix_destino || "",
+      descricao: item.descricao || "",
+      origem: item.origem || "",
+      criadoEm: item.created_at,
+      processadoEm: item.processado_em || item.webhook_recebido_em || ""
+    })),
+    comprovantes
+  });
+};
+
 export async function POST(request, { params }) {
   await init;
 
@@ -1331,6 +1486,17 @@ export async function GET(request, { params }) {
     }
 
     return getPerfil(userId);
+  }
+
+  if (path.startsWith("fatura/")) {
+    const userId = Number(path.split("/")[1]);
+
+    const auth = authenticateUserRequest(request, userId);
+    if (!auth.ok) {
+      return json({ error: auth.error }, auth.status);
+    }
+
+    return getFatura(userId);
   }
 
   return json({ error: "Rota não encontrada." }, 404);

@@ -26,6 +26,11 @@ const pages = {
     title: "Assinatura",
     description: "Visualize seu plano, status de renovação e detalhes da assinatura ativa.",
     action: "Gerenciar assinatura"
+  },
+  sacar: {
+    title: "Sacar fundo",
+    description: "Transfira seu saldo de volta para sua conta via PIX.",
+    action: "Solicitar saque"
   }
 };
 

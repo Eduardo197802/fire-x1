@@ -1,3 +1,4 @@
+import dotenv from "dotenv";
 import { Sequelize } from "sequelize";
 import { up as createUsersTable } from "../migrations/001-create-users-table.js";
 import { up as createDisputasTable } from "../migrations/002-create-disputas-table.js";
@@ -15,6 +16,24 @@ import defineTransacaoModel from "../models/Transacao.js";
 import defineOperacaoModel from "../models/Operacao.js";
 import defineCaixaPlataformaModel from "../models/CaixaPlataforma.js";
 
+dotenv.config({ path: ".env" });
+
+const env = (primaryKey, secondaryKey, fallback = "") => {
+  const primary = process.env[primaryKey];
+  if (typeof primary !== "undefined" && String(primary).trim() !== "") {
+    return primary;
+  }
+
+  if (secondaryKey) {
+    const secondary = process.env[secondaryKey];
+    if (typeof secondary !== "undefined" && String(secondary).trim() !== "") {
+      return secondary;
+    }
+  }
+
+  return fallback;
+};
+
 function toNumber(value, fallback) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -24,15 +43,11 @@ function toBoolean(value) {
   return String(value).toLowerCase() === "true";
 }
 
-const sequelize = new Sequelize({
-  dialect: process.env.DB_DIALECT || "postgres",
-  host: process.env.DB_HOST || "127.0.0.1",
-  port: toNumber(process.env.DB_PORT, 5432),
-  database: process.env.DB_NAME || "firex1_dev",
-  username: process.env.DB_USER || "postgres",
-  password: process.env.DB_PASSWORD || "postgres",
+const shouldUseSsl = toBoolean(env("DB_SSL", "DB_PROD_SSL", "false"));
+
+const sequelizeOptions = {
   logging: false,
-  dialectOptions: toBoolean(process.env.DB_SSL)
+  dialectOptions: shouldUseSsl
     ? {
         ssl: {
           require: true,
@@ -40,7 +55,24 @@ const sequelize = new Sequelize({
         },
       }
     : {},
-});
+};
+
+const databaseUrl = String(process.env.DATABASE_URL || "").trim();
+
+const sequelize = databaseUrl
+  ? new Sequelize(databaseUrl, {
+      dialect: env("DB_DIALECT", "DB_PROD_DIALECT", "postgres"),
+      ...sequelizeOptions,
+    })
+  : new Sequelize({
+      dialect: env("DB_DIALECT", "DB_PROD_DIALECT", "postgres"),
+      host: env("DB_HOST", "DB_PROD_HOST", "127.0.0.1"),
+      port: toNumber(env("DB_PORT", "DB_PROD_PORT", 5432), 5432),
+      database: env("DB_NAME", "DB_PROD_NAME", "firex1_dev"),
+      username: env("DB_USER", "DB_PROD_USER", "postgres"),
+      password: env("DB_PASSWORD", "DB_PROD_PASSWORD", "postgres"),
+      ...sequelizeOptions,
+    });
 
 const requiredUserColumns = {
   cpf: { type: Sequelize.TEXT, allowNull: true },

@@ -43,6 +43,27 @@
   cursor: wait;
 }
 
+.btnAdd {
+  min-height: 42px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(141, 242, 176, 0.4);
+  color: #8df2b0;
+  background: rgba(141, 242, 176, 0.08);
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btnAdd:hover:not(:disabled) {
+  background: rgba(141, 242, 176, 0.16);
+}
+
+.btnAdd:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
 .searchBox {
   display: grid;
 }
@@ -327,6 +348,52 @@
 .btnPrimary:disabled {
   opacity: 0.65;
   cursor: wait;
+}
+
+.btnDanger {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(247, 116, 83, 0.4);
+  color: #f77453;
+  background: rgba(247, 116, 83, 0.08);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btnDanger:hover:not(:disabled) {
+  background: rgba(247, 116, 83, 0.18);
+}
+
+.btnDangerConfirm {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  color: #190b02;
+  background: #f77453;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btnDangerConfirm:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.confirmDelete {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.confirmDelete span {
+  font-size: 13px;
+  color: #f77453;
+  font-weight: 600;
 }
 
 @media (max-width: 960px) {

@@ -1,12 +1,30 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import { useEffect, useMemo, useRef, useState } from "react";
 import styles from "./page.module.css";
 
 const PIX_QR_TTL_MS = 5 * 60 * 1000;
 const PIX_STATUS_POLL_INTERVAL_MS = 4000;
+
+const currencyFormatter = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL"
+});
+
+const formatDateTime = (value) => {
+  if (!value) return "-";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short"
+  }).format(date);
+};
 
 const formatDate = (value) => {
   if (!value) return "-";
@@ -139,6 +157,7 @@ const resolveDepositQrImage = async (data) => {
 };
 
 export default function ContaPageClient({ pageKey, page }) {
+  const router = useRouter();
   const [userId, setUserId] = useState(null);
   const [activeTab, setActiveTab] = useState("editar-perfil");
 
@@ -175,6 +194,31 @@ export default function ContaPageClient({ pageKey, page }) {
   const [depositMonitoring, setDepositMonitoring] = useState(false);
   const depositRedirectedRef = useRef(false);
 
+  const [saqueValue, setSaqueValue] = useState("10,00");
+  const [saquePixKey, setSaquePixKey] = useState("");
+  const [saqueError, setSaqueError] = useState("");
+  const [saqueMessage, setSaqueMessage] = useState("");
+  const [saqueLoading, setSaqueLoading] = useState(false);
+  const [saqueResult, setSaqueResult] = useState(null);
+
+  const [faturaLoading, setFaturaLoading] = useState(pageKey === "minha-fatura");
+  const [faturaError, setFaturaError] = useState("");
+  const [faturaData, setFaturaData] = useState({
+    resumo: null,
+    cobrancas: [],
+    historicoPagamentos: [],
+    comprovantes: []
+  });
+
+  const redirectToLogin = () => {
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem("firex1:user");
+    }
+
+    const redirectPath = `/conta/${pageKey}`;
+    router.replace(`/login?redirect=${encodeURIComponent(redirectPath)}`);
+  };
+
   const redirectToDashboard = (reason) => {
     if (typeof window === "undefined" || depositRedirectedRef.current) {
       return;
@@ -186,9 +230,12 @@ export default function ContaPageClient({ pageKey, page }) {
 
   useEffect(() => {
     const sessionUserId = resolveSessionUserId();
-    if (sessionUserId) {
-      setUserId(sessionUserId);
+    if (!sessionUserId) {
+      redirectToLogin();
+      return;
     }
+
+    setUserId(sessionUserId);
 
     if (pageKey !== "meu-perfil") {
       return;
@@ -197,11 +244,7 @@ export default function ContaPageClient({ pageKey, page }) {
     const rawUser = window.localStorage.getItem("firex1:user");
 
     if (!rawUser) {
-      setState({
-        loading: false,
-        error: "Sessão não encontrada. Faça login novamente.",
-        profile: null
-      });
+      redirectToLogin();
       return;
     }
 
@@ -210,20 +253,12 @@ export default function ContaPageClient({ pageKey, page }) {
     try {
       parsedUser = JSON.parse(rawUser);
     } catch {
-      setState({
-        loading: false,
-        error: "Sessão local inválida. Faça login novamente.",
-        profile: null
-      });
+      redirectToLogin();
       return;
     }
 
     if (!parsedUser?.id) {
-      setState({
-        loading: false,
-        error: "Sessão incompleta. Faça login novamente.",
-        profile: null
-      });
+      redirectToLogin();
       return;
     }
 
@@ -235,6 +270,11 @@ export default function ContaPageClient({ pageKey, page }) {
         const data = await response.json();
 
         if (!response.ok) {
+          if (response.status === 401 || response.status === 403) {
+            redirectToLogin();
+            return;
+          }
+
           throw new Error(data.error || "Não foi possível carregar os dados do perfil.");
         }
 
@@ -271,7 +311,68 @@ export default function ContaPageClient({ pageKey, page }) {
     };
 
     loadProfile();
-  }, [pageKey]);
+  }, [pageKey, router]);
+
+  useEffect(() => {
+    if (pageKey !== "minha-fatura") {
+      return;
+    }
+
+    const sessionUserId = Number(userId || resolveSessionUserId());
+
+    if (!sessionUserId) {
+      redirectToLogin();
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadFatura = async () => {
+      try {
+        setFaturaLoading(true);
+        setFaturaError("");
+
+        const response = await fetch(`/api/user/fatura/${sessionUserId}`, {
+          cache: "no-store"
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+          if (response.status === 401 || response.status === 403) {
+            redirectToLogin();
+            return;
+          }
+
+          throw new Error(data.error || "Não foi possível carregar sua fatura.");
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        setFaturaData({
+          resumo: data.resumo || null,
+          cobrancas: Array.isArray(data.cobrancas) ? data.cobrancas : [],
+          historicoPagamentos: Array.isArray(data.historicoPagamentos) ? data.historicoPagamentos : [],
+          comprovantes: Array.isArray(data.comprovantes) ? data.comprovantes : []
+        });
+      } catch (error) {
+        if (!cancelled) {
+          setFaturaError(error.message);
+        }
+      } finally {
+        if (!cancelled) {
+          setFaturaLoading(false);
+        }
+      }
+    };
+
+    loadFatura();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pageKey, userId, router]);
 
   useEffect(() => {
     if (pageKey !== "adicionar-fundo" || !depositData?.txid || !depositDeadlineAt) {
@@ -948,6 +1049,63 @@ export default function ContaPageClient({ pageKey, page }) {
     }
   };
 
+  const onGenerateSaque = async () => {
+    const sessionUserId = userId || resolveSessionUserId();
+
+    if (!sessionUserId) {
+      setSaqueError("Sessão não encontrada. Faça login novamente.");
+      setSaqueMessage("");
+      return;
+    }
+
+    const valor = parseAmountInput(saqueValue);
+
+    if (valor <= 0) {
+      setSaqueError("Informe um valor válido para sacar.");
+      setSaqueMessage("");
+      return;
+    }
+
+    if (!saquePixKey.trim()) {
+      setSaqueError("Informe a chave PIX para sacar.");
+      setSaqueMessage("");
+      return;
+    }
+
+    try {
+      setSaqueLoading(true);
+      setSaqueError("");
+      setSaqueMessage("");
+      setSaqueResult(null);
+
+      const requestId = `saque-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+      const response = await fetch("/api/pix/saque", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({ userId: sessionUserId, valor, requestId })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Não foi possível processar o saque PIX.");
+      }
+
+      setSaqueResult(data);
+      setSaqueMessage("Saque PIX processado com sucesso! Você será redirecionado em breve.");
+      
+      setTimeout(() => {
+        window.location.assign(`/dashboard?pix=saque_concluido&t=${Date.now()}`);
+      }, 2000);
+    } catch (error) {
+      setSaqueError(error.message);
+    } finally {
+      setSaqueLoading(false);
+    }
+  };
+
   return (
     <main className={styles.page}>
       <section className={`${styles.card} ${pageKey === "meu-perfil" ? styles.cardWide : ""}`}>
@@ -1015,15 +1173,17 @@ export default function ContaPageClient({ pageKey, page }) {
               />
             </label>
 
-            <button
-              type="button"
-              className={styles.primaryButton}
-              onClick={onGenerateDeposit}
-              disabled={actionLoading}
-            >
-              {actionLoading ? "Gerando..." : page.action}
-            </button>
-            <Link href="/dashboard" className={styles.secondaryLink}>Voltar ao dashboard</Link>
+            <div className={styles.actionsRow}>
+              <button
+                type="button"
+                className={styles.primaryButton}
+                onClick={onGenerateDeposit}
+                disabled={actionLoading}
+              >
+                {actionLoading ? "Gerando..." : page.action}
+              </button>
+              <Link href="/dashboard" className={styles.secondaryLink}>Voltar ao dashboard</Link>
+            </div>
 
             {depositError ? <p className={styles.errorMessage}>{depositError}</p> : null}
             {depositMessage ? <p className={styles.successMessage}>{depositMessage}</p> : null}
@@ -1049,7 +1209,178 @@ export default function ContaPageClient({ pageKey, page }) {
           </div>
         ) : null}
 
-        {pageKey !== "meu-perfil" && pageKey !== "adicionar-fundo" ? (
+        {pageKey === "sacar" ? (
+          <div className={styles.actions}>
+            <label className={styles.fieldGroup}>
+              <span>Valor do saque (R$)</span>
+              <input
+                value={saqueValue}
+                onChange={(event) => {
+                  setSaqueValue(event.target.value);
+                  setSaqueError("");
+                  setSaqueMessage("");
+                }}
+                placeholder="10,00"
+                inputMode="decimal"
+              />
+            </label>
+
+            <label className={styles.fieldGroup}>
+              <span>Chave PIX</span>
+              <input
+                value={saquePixKey}
+                onChange={(event) => {
+                  setSaquePixKey(event.target.value);
+                  setSaqueError("");
+                  setSaqueMessage("");
+                }}
+                placeholder="seu-email@email.com ou CPF"
+              />
+            </label>
+
+            <div className={styles.actionsRow}>
+              <button
+                type="button"
+                className={styles.primaryButton}
+                onClick={onGenerateSaque}
+                disabled={saqueLoading}
+              >
+                {saqueLoading ? "Processando..." : page.action}
+              </button>
+              <Link href="/dashboard" className={styles.secondaryLink}>Voltar ao dashboard</Link>
+            </div>
+
+            {saqueError ? <p className={styles.errorMessage}>{saqueError}</p> : null}
+            {saqueMessage ? <p className={styles.successMessage}>{saqueMessage}</p> : null}
+
+            {saqueResult ? (
+              <div className={styles.tabPanelForm}>
+                <p className={styles.tabHelper}>Saque processado com sucesso!</p>
+                <label className={styles.fieldGroup}>
+                  <span>ID da transação</span>
+                  <input value={saqueResult.endToEndId || saqueResult.requestId || ""} readOnly />
+                </label>
+                <label className={styles.fieldGroup}>
+                  <span>Status</span>
+                  <input value={saqueResult.status || "Processado"} readOnly />
+                </label>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {pageKey === "minha-fatura" ? (
+          <div className={styles.invoiceSection}>
+            {faturaLoading ? <p className={styles.infoMessage}>Carregando histórico financeiro...</p> : null}
+            {faturaError ? <p className={styles.errorMessage}>{faturaError}</p> : null}
+
+            {!faturaLoading && !faturaError ? (
+              <>
+                <div className={styles.invoiceSummaryGrid}>
+                  <article className={styles.invoiceCard}>
+                    <p>Total de entradas</p>
+                    <strong>{currencyFormatter.format(Number(faturaData.resumo?.totalEntradas || 0))}</strong>
+                  </article>
+                  <article className={styles.invoiceCard}>
+                    <p>Total de saídas</p>
+                    <strong>{currencyFormatter.format(Number(faturaData.resumo?.totalSaidas || 0))}</strong>
+                  </article>
+                  <article className={styles.invoiceCard}>
+                    <p>Saldo líquido</p>
+                    <strong>{currencyFormatter.format(Number(faturaData.resumo?.saldoLiquido || 0))}</strong>
+                  </article>
+                  <article className={styles.invoiceCard}>
+                    <p>Pendências</p>
+                    <strong>{Number(faturaData.resumo?.pagamentosPendentes || 0)}</strong>
+                  </article>
+                </div>
+
+                <section className={styles.invoicePanel}>
+                  <h2>Cobranças recentes</h2>
+                  {faturaData.cobrancas.length ? (
+                    <div className={styles.invoiceList}>
+                      {faturaData.cobrancas.map((item) => (
+                        <article key={`cobranca-${item.id}`} className={styles.invoiceListItem}>
+                          <div>
+                            <strong>{String(item.tipo || "Cobrança")}</strong>
+                            <p>{item.observacao || "Sem observações"}</p>
+                          </div>
+                          <div className={styles.invoiceListMeta}>
+                            <span>{formatDateTime(item.criadoEm)}</span>
+                            <strong>{currencyFormatter.format(Number(item.valor || 0))}</strong>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className={styles.tabHelper}>Nenhuma cobrança encontrada no período recente.</p>
+                  )}
+                </section>
+
+                <section className={styles.invoicePanel}>
+                  <h2>Histórico de pagamentos</h2>
+                  {faturaData.historicoPagamentos.length ? (
+                    <div className={styles.invoiceTableWrap}>
+                      <table className={styles.invoiceTable}>
+                        <thead>
+                          <tr>
+                            <th>Tipo</th>
+                            <th>Status</th>
+                            <th>Método</th>
+                            <th>Valor</th>
+                            <th>Data</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {faturaData.historicoPagamentos.map((item) => (
+                            <tr key={`pagamento-${item.id}`}>
+                              <td>{String(item.tipo || "-")}</td>
+                              <td>{String(item.status || "-")}</td>
+                              <td>{String(item.metodo || "-")}</td>
+                              <td>{currencyFormatter.format(Number(item.valor || 0))}</td>
+                              <td>{formatDateTime(item.processadoEm || item.criadoEm)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className={styles.tabHelper}>Nenhum pagamento encontrado para esta conta.</p>
+                  )}
+                </section>
+
+                <section className={styles.invoicePanel}>
+                  <h2>Comprovantes</h2>
+                  {faturaData.comprovantes.length ? (
+                    <div className={styles.invoiceList}>
+                      {faturaData.comprovantes.map((item) => (
+                        <article key={`comprovante-${item.id}`} className={styles.invoiceListItem}>
+                          <div>
+                            <strong>{String(item.tipo || "Pagamento")}</strong>
+                            <p>Txid: {item.txid || "-"}</p>
+                            <p>EndToEnd: {item.endToEndId || "-"}</p>
+                          </div>
+                          <div className={styles.invoiceListMeta}>
+                            <span>{formatDateTime(item.processadoEm || item.criadoEm)}</span>
+                            <strong>{currencyFormatter.format(Number(item.valor || 0))}</strong>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className={styles.tabHelper}>Comprovantes serão exibidos após pagamentos concluídos.</p>
+                  )}
+                </section>
+
+                <div className={styles.actionsRow}>
+                  <Link href="/dashboard" className={styles.secondaryLink}>Voltar ao dashboard</Link>
+                </div>
+              </>
+            ) : null}
+          </div>
+        ) : null}
+
+        {pageKey !== "meu-perfil" && pageKey !== "adicionar-fundo" && pageKey !== "sacar" && pageKey !== "minha-fatura" ? (
           <div className={styles.actions}>
             <button type="button" className={styles.primaryButton}>{page.action}</button>
             <Link href="/dashboard" className={styles.secondaryLink}>Voltar ao dashboard</Link>

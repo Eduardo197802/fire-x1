@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import styles from "./layout.module.css";
 
 const TABS = [
@@ -17,6 +17,12 @@ const TABS = [
 
 export default function AdminTabs() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await fetch("/api/admin/auth/logout", { method: "POST", credentials: "include" }).catch(() => {});
+    router.replace("/");
+  };
 
   return (
     <nav className={styles.tabs} aria-label="Abas administrativas">
@@ -32,6 +38,9 @@ export default function AdminTabs() {
           </Link>
         );
       })}
+      <button className={styles.tabLogout} onClick={handleLogout}>
+        Sair
+      </button>
     </nav>
   );
 }

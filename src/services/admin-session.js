@@ -35,6 +35,16 @@ const getAdminSessionSecret = () => {
   return "firex1-admin-dev-secret";
 };
 
+const safeEqual = (received, expected) => {
+  const receivedBuffer = Buffer.from(String(received || ""));
+  const expectedBuffer = Buffer.from(String(expected || ""));
+
+  return (
+    receivedBuffer.length === expectedBuffer.length &&
+    crypto.timingSafeEqual(receivedBuffer, expectedBuffer)
+  );
+};
+
 const encodeToken = (userId, ttlMinutes) => {
   const secret = getAdminSessionSecret();
   if (!secret) {
@@ -75,7 +85,7 @@ const decodeToken = (token) => {
     .update(payload)
     .digest("base64url");
 
-  if (signature !== expectedSignature) {
+  if (!safeEqual(signature, expectedSignature)) {
     return null;
   }
 

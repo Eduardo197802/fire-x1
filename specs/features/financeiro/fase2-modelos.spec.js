@@ -1,3 +1,4 @@
+import { jest } from "@jest/globals";
 import db, { User, Transacao } from "@/services/db.js";
 import { registrarTransacao } from "@/services/financeiro.js";
 
@@ -53,6 +54,16 @@ describe("Fase 2 - Modelos e Serviço Financeiro", () => {
   });
 
   test("Registrar transacao com dados válidos deve criar record", async () => {
+    const createSpy = jest.spyOn(Transacao, "create").mockResolvedValueOnce({
+      id: 999,
+      user_id: 1,
+      tipo: "DEPOSITO",
+      direcao: "entrada",
+      valor: 150.50,
+      status: "confirmado",
+      referencia_externa: "txid-teste-001"
+    });
+
     const transacao = await registrarTransacao({
       userId: 1,
       tipo: "DEPOSITO",
@@ -67,5 +78,17 @@ describe("Fase 2 - Modelos e Serviço Financeiro", () => {
     expect(transacao.direcao).toBe("entrada");
     expect(Number(transacao.valor)).toBe(150.50);
     expect(transacao.referencia_externa).toBe("txid-teste-001");
+
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        user_id: 1,
+        tipo: "DEPOSITO",
+        direcao: "entrada",
+        valor: 150.50,
+        referencia_externa: "txid-teste-001"
+      })
+    );
+
+    createSpy.mockRestore();
   });
 });

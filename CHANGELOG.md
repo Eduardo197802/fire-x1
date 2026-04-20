@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-04-20
+- Corrigido o fluxo de link administrativo temporário: `GET /admin/acesso/:token` agora grava o cookie HttpOnly `firex1_admin_pending` e só então redireciona para `GET /admin/login`, alinhando o token com a validação de estado em `src/app/api/admin/auth/flow-state/route.js`.
+- Criada a Spec 005 em `specs/005-admin-access-link-local/` para rastrear a correcao do fluxo local de solicitacao de link administrativo.
+- `src/services/db.js` passou a preferir `DATABASE_URL` quando configurada, mantendo fallback para as variaveis `DB_*`.
+- `src/config/config.cjs` passou a aceitar `DATABASE_URL` no ambiente de desenvolvimento do sequelize-cli.
+- `src/services/admin-access-link.js` agora gera link com o host local da requisicao quando o pedido vem de `localhost`, evitando envio de link apontando para a URL publica durante testes locais.
+- `src/services/admin-access-link.js` tambem registra a URL bruta do link em ambiente de desenvolvimento antes do envio de e-mail, permitindo testar localmente mesmo quando o SMTP externo rejeita o remetente.
+- Removidas credenciais hardcoded e caminho absoluto Linux de `migrate-financial.mjs` e `migrate2.mjs`; ambos agora leem conexao via `.env`.
+- Criado `scripts/reset-local-postgres-password.ps1` para alinhar a senha do PostgreSQL local ao `.env` quando executado em PowerShell como Administrador.
+- Atualizado teste de governanca `specs/unit/governance/spec-001-postgres-config.spec.js` para cobrir a configuracao com `DATABASE_URL`.
+- PostgreSQL local alinhado ao `.env`, banco `firex1db` criado, bootstrap de schema executado e e-mail `eduardo@maduinformatica.com.br` cadastrado como admin ativo.
+- Validacao pendente: o SMTP externo ainda rejeita o remetente `cadastro@firex1play.com.br`; em desenvolvimento, o link bruto fica disponivel no log para teste local.
+- Implementada a tela `Minha fatura` com dados reais em `src/app/conta/[slug]/ContaPageClient.js`, incluindo resumo de entradas/saidas, cobrancas recentes, historico de pagamentos e comprovantes.
+- Criado endpoint autenticado `GET /api/user/fatura/:userId` em `src/app/api/user/[...slug]/route.js`, consultando `pagamentos` e `transacoes` para consolidar os dados da fatura do usuario.
+
 Todas as mudanças relevantes deste projeto devem ser registradas neste arquivo.
 
 ## 2026-04-10
@@ -37,6 +52,7 @@ Todas as mudanças relevantes deste projeto devem ser registradas neste arquivo.
 - Operacoes monetarias criticas de PIX passaram a usar arredondamento por centavos via `src/services/money.js`.
 - Modelos e migrations base de `users.saldo` e `pagamentos.valor` foram preparados para `DECIMAL(14,2)` e criada a migration `006-alter-money-columns-to-decimal.js` para rollout controlado.
 - Rotas sensiveis de conta (`alterar-senha`, `seguranca/acesso`, `2fa/cadastrar`, `2fa/ativar`, `2fa/desativar` e `notificacoes/aposta`) agora exigem sessao autenticada vinculada ao `userId` da operacao e possuem rate limit nas acoes criticas.
+- Rotas privadas do usuario ` /dashboard ` e ` /conta/* ` agora redirecionam para ` /login ` quando a sessao esta ausente ou expirada, com fallback no cliente para limpar estado local invalido em `src/proxy.js`, `src/app/dashboard/DashboardClient.js` e `src/app/conta/[slug]/ContaPageClient.js`.
 - Suite validada apos endurecimento: `specs/features/auth/login.spec.js`, `specs/features/conta/dashboard.spec.js`, `specs/features/pix/deposito.spec.js`, `specs/features/pix/saque.spec.js` e `specs/features/pix/webhook.spec.js`.
 - Rotas publicas de verificacao de conta protegidas por rate limit de IP: `verificar` (10/10min), `reenviar-codigo` (5/10min), `recuperar-senha/solicitar` (5/15min) e `recuperar-senha/redefinir` (10/10min) via helper `enforcePublicRouteRateLimit`.
 - Testes de 429 adicionados em `specs/features/auth/verificacao.spec.js` com mock do `consumeRateLimit`.

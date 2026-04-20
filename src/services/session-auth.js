@@ -3,10 +3,43 @@ import crypto from "crypto";
 const SESSION_TTL_HOURS = 24;
 export const SESSION_COOKIE_NAME = "firex1_session";
 
-const getAuthSecret = () =>
-  process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || process.env.JWT_SECRET || "firex1-dev-secret";
+const resolveAuthSecret = () =>
+  String(process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || process.env.JWT_SECRET || "").trim();
+
+export const hasAuthSecret = () => {
+  if (process.env.NODE_ENV !== "production") {
+    return true;
+  }
+  return Boolean(resolveAuthSecret());
+};
+
+const getAuthSecret = () => {
+  const configuredSecret = resolveAuthSecret();
+  if (configuredSecret) {
+    return configuredSecret;
+  }
+  if (process.env.NODE_ENV === "production") {
+    return "";
+  }
+  return "firex1-dev-secret";
+};
+
+const safeEqual = (received, expected) => {
+  const receivedBuffer = Buffer.from(String(received || ""));
+  const expectedBuffer = Buffer.from(String(expected || ""));
+
+  return (
+    receivedBuffer.length === expectedBuffer.length &&
+    crypto.timingSafeEqual(receivedBuffer, expectedBuffer)
+  );
+};
 
 export const encodeAuthToken = (userId) => {
+  const secret = getAuthSecret();
+  if (!secret) {
+    return "";
+  }
+
   const normalizedUserId = Number(userId);
 
   if (!normalizedUserId) {
@@ -16,7 +49,7 @@ export const encodeAuthToken = (userId) => {
   const expiresAt = Date.now() + SESSION_TTL_HOURS * 60 * 60 * 1000;
   const payload = `${normalizedUserId}.${expiresAt}`;
   const signature = crypto
-    .createHmac("sha256", getAuthSecret())
+    .createHmac("sha256", secret)
     .update(payload)
     .digest("base64url");
 
@@ -24,6 +57,11 @@ export const encodeAuthToken = (userId) => {
 };
 
 export const decodeAuthToken = (token) => {
+  const secret = getAuthSecret();
+  if (!secret) {
+    return null;
+  }
+
   const [userIdPart, expiresAtPart, signature] = String(token || "").split(".");
 
   if (!userIdPart || !expiresAtPart || !signature) {
@@ -32,11 +70,11 @@ export const decodeAuthToken = (token) => {
 
   const payload = `${userIdPart}.${expiresAtPart}`;
   const expectedSignature = crypto
-    .createHmac("sha256", getAuthSecret())
+    .createHmac("sha256", secret)
     .update(payload)
     .digest("base64url");
 
-  if (signature !== expectedSignature) {
+  if (!safeEqual(signature, expectedSignature)) {
     return null;
   }
 

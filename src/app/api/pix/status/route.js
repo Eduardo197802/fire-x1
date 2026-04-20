@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { init, Pagamento } from "../../../../services/db";
-import { normalizeAmount } from "../../../../services/money";
+import { init, Pagamento, User, sequelize } from "../../../../services/db";
+import { addMoney, normalizeAmount } from "../../../../services/money";
 import { buildUserRateLimitKey, consumeRateLimit } from "../../../../services/rate-limit";
 import { authenticateUserRequest } from "../../../../services/session-auth";
 
@@ -8,6 +8,23 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const FINAL_PAYMENT_STATUSES = new Set(["creditado", "falha", "cancelado", "concluido"]);
+const MOCK_TXID_PREFIX = "mock-";
+
+const toBool = (value) => String(value || "").trim().toLowerCase() === "true";
+
+const isPixMockEnabled = () => {
+  if (typeof process.env.PIX_MOCK_MODE !== "undefined") {
+    return toBool(process.env.PIX_MOCK_MODE);
+  }
+
+  return process.env.NODE_ENV !== "production";
+};
+
+const getMockAutoConfirmMs = () => {
+  const parsed = Number(process.env.PIX_MOCK_AUTO_CONFIRM_SECONDS || 8);
+  const seconds = Number.isFinite(parsed) && parsed > 0 ? parsed : 8;
+  return seconds * 1000;
+};
 
 export async function GET(request) {
   const userId = Number(request.nextUrl.searchParams.get("userId") || 0);
@@ -55,7 +72,15 @@ export async function GET(request) {
       tipo: "deposito",
       metodo: "pix"
     },
-    attributes: ["txid", "status", "valor", "processado_em", "webhook_recebido_em", "created_at"],
+    attributes: [
+      "id",
+      "txid",
+      "status",
+      "valor",
+      "processado_em",
+      "webhook_recebido_em",
+      "created_at"
+    ],
     raw: true
   });
 
@@ -63,7 +88,65 @@ export async function GET(request) {
     return NextResponse.json({ error: "Depósito PIX não encontrado." }, { status: 404 });
   }
 
-  const status = String(pagamento.status || "pendente").toLowerCase();
+  let status = String(pagamento.status || "pendente").toLowerCase();
+  let processadoEm = pagamento.processado_em || null;
+  let webhookRecebidoEm = pagamento.webhook_recebido_em || null;
+
+  // Em ambiente de desenvolvimento, confirma automaticamente os PIX mockados
+  // apos alguns segundos para permitir teste ponta a ponta sem transacao real.
+  if (isPixMockEnabled() && txid.startsWith(MOCK_TXID_PREFIX) && status === "pendente") {
+    const createdAtRaw = pagamento.created_at || null;
+    const createdAtMs = createdAtRaw ? new Date(createdAtRaw).getTime() : NaN;
+    const elapsedMs = Number.isFinite(createdAtMs) ? Date.now() - createdAtMs : getMockAutoConfirmMs();
+
+    if (elapsedMs >= getMockAutoConfirmMs()) {
+      try {
+        await sequelize.transaction(async (transaction) => {
+          const lockedPagamento = await Pagamento.findOne({
+            where: { id: pagamento.id },
+            transaction,
+            lock: transaction.LOCK.UPDATE
+          });
+
+          if (!lockedPagamento || String(lockedPagamento.status || "").toLowerCase() !== "pendente") {
+            return;
+          }
+
+          const user = await User.findByPk(auth.userId, {
+            transaction,
+            lock: transaction.LOCK.UPDATE
+          });
+
+          if (!user) {
+            return;
+          }
+
+          const valorCredito = normalizeAmount(lockedPagamento.valor);
+          const nowIso = new Date().toISOString();
+
+          await User.update(
+            { saldo: addMoney(user.saldo, valorCredito) },
+            { where: { id: user.id }, transaction }
+          );
+
+          await Pagamento.update(
+            {
+              status: "creditado",
+              processado_em: nowIso,
+              webhook_recebido_em: nowIso
+            },
+            { where: { id: lockedPagamento.id }, transaction }
+          );
+
+          status = "creditado";
+          processadoEm = nowIso;
+          webhookRecebidoEm = nowIso;
+        });
+      } catch {
+        // Se falhar, mantem o status pendente para nova tentativa no proximo poll.
+      }
+    }
+  }
 
   return NextResponse.json({
     txid: pagamento.txid,
@@ -71,8 +154,8 @@ export async function GET(request) {
     isPaid: status === "creditado",
     finalized: FINAL_PAYMENT_STATUSES.has(status),
     valor: normalizeAmount(pagamento.valor),
-    processadoEm: pagamento.processado_em || null,
-    webhookRecebidoEm: pagamento.webhook_recebido_em || null,
+    processadoEm,
+    webhookRecebidoEm,
     criadoEm: pagamento.created_at || null
   });
 }

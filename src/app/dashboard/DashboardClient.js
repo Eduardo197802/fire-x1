@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import styles from "./page.module.css";
 
 const currencyFormatter = new Intl.NumberFormat("pt-BR", {
@@ -19,6 +20,7 @@ const formatDate = (value) => {
 };
 
 export default function DashboardClient() {
+  const router = useRouter();
   const userMenuRef = useRef(null);
   const openTimerRef = useRef(null);
   const closeTimerRef = useRef(null);
@@ -36,6 +38,14 @@ export default function DashboardClient() {
     metrics: null,
     activity: []
   });
+
+  const redirectToLogin = () => {
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem("firex1:user");
+    }
+
+    router.replace("/login?redirect=/dashboard");
+  };
 
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
@@ -83,13 +93,7 @@ export default function DashboardClient() {
     const rawUser = window.localStorage.getItem("firex1:user");
 
     if (!rawUser) {
-      setState({
-        loading: false,
-        error: "Nenhum usuário logado encontrado. Faça login novamente.",
-        user: null,
-        metrics: null,
-        activity: []
-      });
+      redirectToLogin();
       return;
     }
 
@@ -98,24 +102,12 @@ export default function DashboardClient() {
     try {
       parsedUser = JSON.parse(rawUser);
     } catch {
-      setState({
-        loading: false,
-        error: "Sessão local inválida. Faça login novamente.",
-        user: null,
-        metrics: null,
-        activity: []
-      });
+      redirectToLogin();
       return;
     }
 
     if (!parsedUser?.id) {
-      setState({
-        loading: false,
-        error: "Sessão incompleta. Faça login novamente.",
-        user: null,
-        metrics: null,
-        activity: []
-      });
+      redirectToLogin();
       return;
     }
 
@@ -127,6 +119,11 @@ export default function DashboardClient() {
         const data = await response.json();
 
         if (!response.ok) {
+          if (response.status === 401 || response.status === 403) {
+            redirectToLogin();
+            return;
+          }
+
           throw new Error(data.error || "Erro ao carregar dashboard.");
         }
 
@@ -149,7 +146,7 @@ export default function DashboardClient() {
     };
 
     loadDashboard();
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     return () => {
@@ -343,6 +340,7 @@ export default function DashboardClient() {
                 <div className={`${styles.userDropdown} ${isUserMenuOpen ? styles.userDropdownOpen : ""}`}>
                   <Link href="/conta/meu-perfil" className={styles.userDropdownItem} onClick={closeMenuNow}>Meu perfil</Link>
                   <Link href="/conta/adicionar-fundo" className={styles.userDropdownItem} onClick={closeMenuNow}>Adicionar fundo</Link>
+                  <Link href="/conta/sacar" className={styles.userDropdownItem} onClick={closeMenuNow}>Sacar fundo</Link>
                   <Link href="/conta/minha-fatura" className={styles.userDropdownItem} onClick={closeMenuNow}>Minha fatura</Link>
                   <Link href="/conta/assinatura" className={styles.userDropdownItem} onClick={closeMenuNow}>Assinatura</Link>
 
@@ -394,6 +392,7 @@ export default function DashboardClient() {
 
                   <div className={styles.heroActions}>
                     <Link href="/conta/adicionar-fundo" className={styles.primaryButton}>Adicionar crédito</Link>
+                    <Link href="/conta/sacar" className={styles.primaryButton}>Sacar fundo</Link>
                     <button className={styles.secondaryButton}>Criar desafios</button>
                     <button className={styles.secondaryButton}>Ver desafios</button>
                   </div>

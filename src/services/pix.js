@@ -6,6 +6,17 @@ import fs from "fs";
 const Gerencianet = GerencianetModule?.default || GerencianetModule;
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 
+const toBool = (value) => String(value || "").trim().toLowerCase() === "true";
+
+const isPixMockEnabled = () => {
+  if (typeof process.env.PIX_MOCK_MODE !== "undefined") {
+    return toBool(process.env.PIX_MOCK_MODE);
+  }
+
+  // Em desenvolvimento, usa mock por padrao para permitir testes sem transacao real.
+  return process.env.NODE_ENV !== "production";
+};
+
 function requireEnv(name) {
   const value = process.env[name];
 
@@ -68,6 +79,20 @@ function buildOptions() {
 }
 
 export async function createPixDepositCharge({ valor, userId }) {
+  if (isPixMockEnabled()) {
+    const txid = `mock-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+
+    return {
+      txid,
+      brCode: `MOCK-PIX|TXID:${txid}|USER:${userId}|VALOR:${Number(valor).toFixed(2)}`,
+      qrCodeImage: null,
+      raw: {
+        mocked: true,
+        mode: "PIX_MOCK_MODE",
+      },
+    };
+  }
+
   const api = new Gerencianet(buildOptions());
   const chavePix = requireEnv("EFI_PIX_KEY");
 
@@ -95,6 +120,19 @@ export async function createPixDepositCharge({ valor, userId }) {
 }
 
 export async function sendPixWithdraw({ valor, chavePix, requestId }) {
+  if (isPixMockEnabled()) {
+    return {
+      endToEndId: `E2E-MOCK-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+      raw: {
+        mocked: true,
+        mode: "PIX_MOCK_MODE",
+        valor: Number(valor).toFixed(2),
+        chavePix,
+        requestId,
+      },
+    };
+  }
+
   const api = new Gerencianet(buildOptions());
 
   const body = {

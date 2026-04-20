@@ -27,7 +27,7 @@ function UsuarioRow({ usuario, onEdit }) {
       <div className={styles.cell}>
         <StatusBadge enabled={usuario.two_factor_enabled} label="2FA" />
       </div>
-      <div className={styles.cell}>
+      <div className={styles.cell} style={{ gap: "6px", display: "flex" }}>
         <button className={styles.btnEdit} onClick={() => onEdit(usuario)}>
           Editar
         </button>
@@ -36,7 +36,44 @@ function UsuarioRow({ usuario, onEdit }) {
   );
 }
 
-function EditModal({ usuario, onClose, onSave, loading }) {
+function AddUserModal({ onClose, onSave, loading }) {
+  const [email, setEmail] = useState("");
+  const [nome, setNome] = useState("");
+  const [senha, setSenha] = useState("");
+
+  return (
+    <div className={styles.modalOverlay} onClick={onClose}>
+      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+        <header className={styles.modalHeader}>
+          <h2>Adicionar Usuário</h2>
+          <button className={styles.btnClose} onClick={onClose}>✕</button>
+        </header>
+        <div className={styles.modalContent}>
+          <div className={styles.field}>
+            <label>E-mail</label>
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="usuario@dominio.com" disabled={loading} />
+          </div>
+          <div className={styles.field}>
+            <label>Nome</label>
+            <input type="text" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome completo" disabled={loading} />
+          </div>
+          <div className={styles.field}>
+            <label>Senha</label>
+            <input type="password" value={senha} onChange={(e) => setSenha(e.target.value)} placeholder="Mín. 8 chars, maiúscula, número e símbolo" disabled={loading} />
+          </div>
+        </div>
+        <footer className={styles.modalFooter}>
+          <button className={styles.btnSecondary} onClick={onClose} disabled={loading}>Cancelar</button>
+          <button className={styles.btnPrimary} onClick={() => onSave({ email, nome, senha })} disabled={loading}>
+            {loading ? "Criando..." : "Criar usuário"}
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+function EditModal({ usuario, onClose, onSave, onDelete, loading }) {
   const [contaLiberada, setContaLiberada] = useState(usuario?.conta_liberada || false);
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(usuario?.two_factor_enabled || false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -97,18 +134,28 @@ function EditModal({ usuario, onClose, onSave, loading }) {
         </div>
 
         <footer className={styles.modalFooter}>
+          {!confirmDelete ? (
+            <button className={styles.btnDanger} onClick={() => setConfirmDelete(true)} disabled={loading}>
+              Excluir
+            </button>
+          ) : (
+            <div className={styles.confirmDelete}>
+              <span>Confirmar exclusão?</span>
+              <button className={styles.btnDangerConfirm} onClick={() => onDelete(usuario.id)} disabled={loading}>
+                {loading ? "Excluindo..." : "Sim, excluir"}
+              </button>
+              <button className={styles.btnSecondary} onClick={() => setConfirmDelete(false)} disabled={loading}>
+                Não
+              </button>
+            </div>
+          )}
+          <div style={{ flex: 1 }} />
           <button className={styles.btnSecondary} onClick={onClose} disabled={loading}>
             Cancelar
           </button>
           <button
             className={styles.btnPrimary}
-            onClick={() =>
-              onSave({
-                usuarioId: usuario.id,
-                contaLiberada,
-                twoFactorEnabled
-              })
-            }
+            onClick={() => onSave({ usuarioId: usuario.id, contaLiberada, twoFactorEnabled })}
             disabled={loading}
           >
             {loading ? "Salvando..." : "Salvar"}
@@ -125,6 +172,8 @@ export default function AdminUsuariosPage() {
   const [error, setError] = useState("");
   const [editingUsuario, setEditingUsuario] = useState(null);
   const [savingUsuario, setSavingUsuario] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addingUsuario, setAddingUsuario] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
@@ -150,6 +199,48 @@ export default function AdminUsuariosPage() {
       setError(err.message || "Erro ao carregar usuários.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAddUsuario = async ({ email, nome, senha }) => {
+    setAddingUsuario(true);
+    setError("");
+    try {
+      const response = await fetch("/api/admin/usuarios/criar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email, nome, senha })
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || `HTTP ${response.status}`);
+      setUsuarios((prev) => [body.usuario, ...prev]);
+      setShowAddModal(false);
+    } catch (err) {
+      setError(err.message || "Erro ao criar usuário.");
+    } finally {
+      setAddingUsuario(false);
+    }
+  };
+
+  const handleDeleteUsuario = async (usuarioId) => {
+    setSavingUsuario(true);
+    setError("");
+    try {
+      const response = await fetch("/api/admin/usuarios/excluir", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ usuarioId })
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || `HTTP ${response.status}`);
+      setUsuarios((prev) => prev.filter((u) => u.id !== usuarioId));
+      setEditingUsuario(null);
+    } catch (err) {
+      setError(err.message || "Erro ao excluir usuário.");
+    } finally {
+      setSavingUsuario(false);
     }
   };
 
@@ -193,9 +284,14 @@ export default function AdminUsuariosPage() {
           <h2>Gerenciar Usuários</h2>
           <p>Gestão de permissões e status de conta para operadores administrativos.</p>
         </div>
-        <button className={styles.btnRefresh} onClick={loadUsuarios} disabled={loading}>
-          {loading ? "Atualizando..." : "Atualizar"}
-        </button>
+        <div style={{ display: "flex", gap: "8px" }}>
+          <button className={styles.btnAdd} onClick={() => setShowAddModal(true)} disabled={loading}>
+            + Adicionar
+          </button>
+          <button className={styles.btnRefresh} onClick={loadUsuarios} disabled={loading}>
+            {loading ? "Atualizando..." : "Atualizar"}
+          </button>
+        </div>
       </header>
 
       {error && <div className={styles.errorBox}>{error}</div>}
@@ -239,7 +335,16 @@ export default function AdminUsuariosPage() {
           usuario={editingUsuario}
           onClose={() => setEditingUsuario(null)}
           onSave={handleSaveUsuario}
+          onDelete={handleDeleteUsuario}
           loading={savingUsuario}
+        />
+      )}
+
+      {showAddModal && (
+        <AddUserModal
+          onClose={() => setShowAddModal(false)}
+          onSave={handleAddUsuario}
+          loading={addingUsuario}
         />
       )}
     </section>

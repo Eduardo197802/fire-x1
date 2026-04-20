@@ -55,6 +55,26 @@
   background: linear-gradient(135deg, #ffd1a5 0%, var(--accent) 100%);
 }
 
+.tabLogout {
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(247, 116, 83, 0.4);
+  color: #f77453;
+  background: rgba(247, 116, 83, 0.08);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  margin-left: auto;
+  transition: all 0.2s;
+}
+
+.tabLogout:hover {
+  background: rgba(247, 116, 83, 0.18);
+  border-color: #f77453;
+}
+
 .content {
   width: min(1440px, 100%);
   margin: 0 auto;

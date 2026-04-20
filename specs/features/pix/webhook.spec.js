@@ -14,6 +14,10 @@ jest.mock("@/services/db", () => ({
   },
 }));
 
+jest.mock("@/services/financeiro", () => ({
+  registrarTransacao: jest.fn().mockResolvedValue({ id: 1 }),
+}));
+
 describe("POST /api/pix/webhook", () => {
   const post = (body, token = "webhook-secret-test") =>
     POST(

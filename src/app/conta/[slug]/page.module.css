@@ -221,12 +221,124 @@
   flex-wrap: wrap;
 }
 
+.invoiceSection {
+  margin-top: 18px;
+  display: grid;
+  gap: 14px;
+}
+
+.invoiceSummaryGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.invoiceCard {
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.invoiceCard p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.invoiceCard strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 22px;
+  font-family: var(--font-display), sans-serif;
+  color: #fff2e3;
+}
+
+.invoicePanel {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.02);
+  display: grid;
+  gap: 10px;
+}
+
+.invoicePanel h2 {
+  margin: 0;
+  font-size: 20px;
+  font-family: var(--font-display), sans-serif;
+}
+
+.invoiceList {
+  display: grid;
+  gap: 10px;
+}
+
+.invoiceListItem {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.invoiceListItem strong {
+  display: block;
+}
+
+.invoiceListItem p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.invoiceListMeta {
+  text-align: right;
+  display: grid;
+  gap: 6px;
+  align-content: center;
+}
+
+.invoiceListMeta span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.invoiceTableWrap {
+  overflow-x: auto;
+}
+
+.invoiceTable {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 640px;
+}
+
+.invoiceTable th,
+.invoiceTable td {
+  padding: 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.invoiceTable th {
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 .primaryButton,
 .secondaryLink {
-  min-height: 46px;
+  height: 46px;
+  width: 210px;
   padding: 0 18px;
   border-radius: 999px;
   border: 1px solid transparent;
+  box-sizing: border-box;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -236,6 +348,8 @@
 }
 
 .primaryButton {
+  appearance: none;
+  -webkit-appearance: none;
   color: #180c02;
   background: linear-gradient(135deg, #ffd1a5 0%, var(--accent) 100%);
   font-weight: 700;
@@ -265,6 +379,10 @@
   .metaGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .invoiceSummaryGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 760px) {
@@ -290,5 +408,17 @@
 
   .metaGrid {
     grid-template-columns: 1fr;
+  }
+
+  .invoiceSummaryGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .invoiceListItem {
+    flex-direction: column;
+  }
+
+  .invoiceListMeta {
+    text-align: left;
   }
 }

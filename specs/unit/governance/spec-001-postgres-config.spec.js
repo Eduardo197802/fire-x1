@@ -20,8 +20,10 @@ describe('Spec 001 postgres configuration', () => {
   it('should configure runtime database connection for postgres and gated bootstrap', () => {
     const dbService = read(path.join('src', 'services', 'db.js'));
 
-    expect(dbService).toContain('dialect: process.env.DB_DIALECT || "postgres"');
-    expect(dbService).toContain('host: process.env.DB_HOST || "127.0.0.1"');
+    expect(dbService).toContain('const databaseUrl = String(process.env.DATABASE_URL || "").trim();');
+    expect(dbService).toContain('new Sequelize(databaseUrl');
+    expect(dbService).toContain('dialect: env("DB_DIALECT", "DB_PROD_DIALECT", "postgres")');
+    expect(dbService).toContain('host: env("DB_HOST", "DB_PROD_HOST", "127.0.0.1")');
     expect(dbService).toContain('const shouldBootstrapSchema = toBoolean(process.env.DB_BOOTSTRAP_SCHEMA);');
     expect(dbService).toContain('if (!shouldBootstrapSchema) {');
   });

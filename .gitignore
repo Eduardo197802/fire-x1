@@ -11,3 +11,12 @@ database.db
 *.log
 .vscode/settings.json
 Efi Bank/
+.swc/
+.env.*
+!.env.example
+*.tar.gz
+*.bundle
+*.swp
+*.swo
+tmp-*
+buscar.txt

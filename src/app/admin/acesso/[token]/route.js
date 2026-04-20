@@ -1,39 +1,53 @@
 import { NextResponse } from "next/server";
+import { validateAdminAccessLink } from "../../../../services/admin-access-link";
 import {
   ADMIN_PENDING_COOKIE_NAME,
   encodeAdminPendingToken,
-  getAdminPendingCookieOptions
+  getAdminPendingCookieOptions,
+  hasAdminSessionSecret
 } from "../../../../services/admin-session";
-import { consumeAdminAccessLinkToken } from "../../../../services/admin-access-link";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const buildRedirect = (request, status) => {
+const redirectToLogin = (request, errorCode) => {
   const url = new URL("/admin/login", request.url);
-  url.searchParams.set("link", status);
-  return url;
+  if (errorCode) {
+    url.searchParams.set("erro", errorCode);
+  }
+  return NextResponse.redirect(url);
 };
 
-export async function GET(request, context) {
-  const token = context?.params?.token;
+export async function GET(request, { params }) {
+  if (!hasAdminSessionSecret()) {
+    return redirectToLogin(request, "configuracao_invalida");
+  }
+
+  const resolvedParams = await params;
+  const token = String(resolvedParams?.token || "").trim();
+
+  if (!token) {
+    return redirectToLogin(request, "link_invalido");
+  }
+
+  let result;
 
   try {
-    const consumed = await consumeAdminAccessLinkToken(token);
-    if (!consumed?.userId) {
-      return NextResponse.redirect(buildRedirect(request, "invalido"));
-    }
-
-    const response = NextResponse.redirect(buildRedirect(request, "ok"));
-    response.cookies.set(
-      ADMIN_PENDING_COOKIE_NAME,
-      encodeAdminPendingToken(consumed.userId),
-      getAdminPendingCookieOptions()
-    );
-
-    return response;
-  } catch (error) {
-    console.error("Erro ao consumir link admin:", error.message);
-    return NextResponse.redirect(buildRedirect(request, "erro"));
+    result = await validateAdminAccessLink(token);
+  } catch {
+    return redirectToLogin(request, "link_expirado");
   }
+
+  if (!result?.ok || !result?.userId) {
+    return redirectToLogin(request, "link_expirado");
+  }
+
+  const response = redirectToLogin(request);
+  response.cookies.set(
+    ADMIN_PENDING_COOKIE_NAME,
+    encodeAdminPendingToken(result.userId),
+    getAdminPendingCookieOptions()
+  );
+
+  return response;
 }
