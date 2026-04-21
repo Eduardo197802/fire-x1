@@ -177,7 +177,6 @@ export async function sendPixWithdraw({ valor, chavePix, requestId }) {
     pagador: {
       chave: chavePix,
     },
-    infoPagador: `Saque request ${requestId}`,
   };
 
   const response = await api.pixSend({ idEnvio }, body);
