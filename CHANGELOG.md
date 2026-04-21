@@ -6,6 +6,7 @@
 - Corrigido `sendPixWithdraw` em `src/services/pix.js` para enviar `pagador.chave` com a chave PIX da conta Efi e `favorecido.chave` com a chave PIX cadastrada pelo usuario.
 - Extraida montagem do request de saque para `buildPixWithdrawRequest`, preservando sanitizacao de `idEnvio` no padrao alfanumerico de 1 a 35 caracteres.
 - Adicionado teste unitario em `specs/unit/pix-withdraw-payload.spec.js` para cobrir o contrato do payload de envio PIX.
+- Ajustado o endpoint e a tela de saque para manter status `em_processamento` quando a Efi ainda retorna `EM_PROCESSAMENTO`, evitando exibir saque como concluido antes da liquidacao.
 - Validacao executada: `npx jest --runInBand --runTestsByPath specs/unit/pix-withdraw-payload.spec.js specs/features/pix/saque.spec.js`.
 
 ## 2026-04-20

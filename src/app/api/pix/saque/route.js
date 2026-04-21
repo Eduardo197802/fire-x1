@@ -137,34 +137,44 @@ export async function POST(request) {
 
   try {
     const withdraw = await sendPixWithdraw({ valor, chavePix, requestId });
+    const efiStatus = String(withdraw.status || "").trim().toUpperCase();
+    const isConcluded = ["REALIZADO", "CONCLUIDO", "CONCLUÍDO"].includes(efiStatus);
+    const paymentStatus = isConcluded ? "concluido" : "em_processamento";
 
     await Pagamento.update(
       {
-        status: "concluido",
+        status: paymentStatus,
         efi_end_to_end_id: withdraw.endToEndId,
+        descricao: `Saque PIX enviado para Efi${efiStatus ? `: ${efiStatus}` : ""}`,
         processado_em: new Date().toISOString(),
       },
       { where: { id: pagamentoId } }
     );
 
     // Registrar transação no novo modelo financeiro (best-effort, não reverte débito se falhar)
-    try {
-      await registrarTransacao({
-        userId: auth.userId,
-        tipo: "SAQUE",
-        direcao: "saida",
-        valor: valor,
-        status: "confirmado",
-        referenciaExterna: requestId
-      });
-    } catch (err) {
+    if (isConcluded) {
+      try {
+        await registrarTransacao({
+          userId: auth.userId,
+          tipo: "SAQUE",
+          direcao: "saida",
+          valor: valor,
+          status: "confirmado",
+          referenciaExterna: requestId
+        });
+      } catch (err) {
       console.error(`[Saque PIX] Falha ao registrar transação de saque: ${err.message}`);
+    }
     }
 
     return NextResponse.json({
       requestId,
-      status: "concluido",
+      status: paymentStatus,
+      efiStatus: efiStatus || null,
       endToEndId: withdraw.endToEndId,
+      message: isConcluded
+        ? "Saque PIX concluido."
+        : "Saque PIX enviado para processamento pela Efi.",
     });
   } catch (error) {
     await sequelize.transaction(async (transaction) => {

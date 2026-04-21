@@ -79,7 +79,7 @@ describe("POST /api/pix/saque", () => {
     });
 
     Pagamento.create.mockResolvedValue({ id: 99 });
-    sendPixWithdraw.mockResolvedValue({ endToEndId: "E2E-SAQUE-1" });
+    sendPixWithdraw.mockResolvedValue({ endToEndId: "E2E-SAQUE-1", status: "REALIZADO" });
 
     const response = await post({ userId: 7, valor: 20, requestId: "REQ-SAQUE-1" }, createToken(7));
     const body = await readJson(response);
@@ -102,6 +102,39 @@ describe("POST /api/pix/saque", () => {
       }),
       expect.any(Object)
     );
+  });
+
+  it("mantem saque em processamento quando a Efi ainda nao liquidou", async () => {
+    const { Pagamento, User } = require("@/services/db");
+    const { sendPixWithdraw } = require("@/services/pix");
+    const { registrarTransacao } = require("@/services/financeiro");
+
+    Pagamento.findOne.mockResolvedValue(null);
+
+    User.findByPk.mockResolvedValue({
+      id: 7,
+      saldo: 120,
+      conta_liberada: 1,
+      chave_pix: "usuario@pix.com",
+    });
+
+    Pagamento.create.mockResolvedValue({ id: 99 });
+    sendPixWithdraw.mockResolvedValue({ endToEndId: "E2E-SAQUE-2", status: "EM_PROCESSAMENTO" });
+
+    const response = await post({ userId: 7, valor: 20, requestId: "REQ-SAQUE-2" }, createToken(7));
+    const body = await readJson(response);
+
+    expect(response.status).toBe(200);
+    expect(body.status).toBe("em_processamento");
+    expect(body.efiStatus).toBe("EM_PROCESSAMENTO");
+    expect(Pagamento.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "em_processamento",
+        efi_end_to_end_id: "E2E-SAQUE-2",
+      }),
+      expect.objectContaining({ where: { id: 99 } })
+    );
+    expect(registrarTransacao).not.toHaveBeenCalled();
   });
 
   it("retorna 403 quando token e de outro usuario", async () => {

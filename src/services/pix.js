@@ -175,6 +175,7 @@ export async function sendPixWithdraw({ valor, chavePix, requestId }) {
   if (isPixMockEnabled()) {
     return {
       endToEndId: `E2E-MOCK-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+      status: "REALIZADO",
       raw: {
         mocked: true,
         mode: "PIX_MOCK_MODE",
@@ -197,6 +198,7 @@ export async function sendPixWithdraw({ valor, chavePix, requestId }) {
 
   return {
     endToEndId: response?.endToEndId || response?.e2eId || null,
+    status: response?.status || null,
     raw: response,
   };
 }

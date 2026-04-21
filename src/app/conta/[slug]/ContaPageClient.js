@@ -1267,6 +1267,10 @@ export default function ContaPageClient({ pageKey, page }) {
       }
 
       setSaqueResult(data);
+      if (data.status !== "concluido") {
+        setSaqueMessage("Saque PIX enviado para processamento. Aguarde a confirmacao da Efi.");
+        return;
+      }
       setSaqueMessage("Saque PIX processado com sucesso! Você será redirecionado em breve.");
       
       setTimeout(() => {
