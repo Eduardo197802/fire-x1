@@ -166,6 +166,12 @@ export async function sendPixWithdraw({ valor, chavePix, requestId }) {
 
   const api = new Gerencianet(buildOptions());
 
+  // A EFI exige idEnvio alfanumerico com 1 a 35 caracteres.
+  const sanitizedRequestId = String(requestId || "")
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .slice(0, 35);
+  const idEnvio = sanitizedRequestId || `REQ${Date.now().toString(36).toUpperCase()}`;
+
   const body = {
     valor: Number(valor).toFixed(2),
     pagador: {
@@ -174,7 +180,7 @@ export async function sendPixWithdraw({ valor, chavePix, requestId }) {
     infoPagador: `Saque request ${requestId}`,
   };
 
-  const response = await api.pixSend({}, body);
+  const response = await api.pixSend({ idEnvio }, body);
 
   return {
     endToEndId: response?.endToEndId || response?.e2eId || null,
