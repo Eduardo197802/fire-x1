@@ -15,6 +15,12 @@
 - Validacao pendente: o SMTP externo ainda rejeita o remetente `cadastro@firex1play.com.br`; em desenvolvimento, o link bruto fica disponivel no log para teste local.
 - Implementada a tela `Minha fatura` com dados reais em `src/app/conta/[slug]/ContaPageClient.js`, incluindo resumo de entradas/saidas, cobrancas recentes, historico de pagamentos e comprovantes.
 - Criado endpoint autenticado `GET /api/user/fatura/:userId` em `src/app/api/user/[...slug]/route.js`, consultando `pagamentos` e `transacoes` para consolidar os dados da fatura do usuario.
+- Atualizada a `Minha fatura` para filtrar por período com padrão de 15 dias e atalhos de 30, 60 e 90 dias; para períodos acima disso, o usuário informa data inicial/final em `src/app/conta/[slug]/ContaPageClient.js`.
+- Atualizado `GET /api/user/fatura/:userId` para aceitar `days` (15/30/60/90) e intervalo por `startDate`/`endDate`, aplicando o filtro em `pagamentos` e `transacoes` no backend.
+- Implementado cadastro de chave PIX do usuário em `Meu perfil`, com persistência via `POST /api/user/pix/chave`.
+- Regra de segurança aplicada: a chave PIX pode ser cadastrada apenas uma vez e não pode ser alterada pelo usuário; alteração deve ser solicitada ao admin por e-mail.
+- Validação da chave PIX restrita aos dados originais da conta: apenas CPF, e-mail de cadastro ou celular de cadastro.
+- Tela de saque atualizada para usar a chave PIX já cadastrada em perfil e bloquear saque quando não houver chave cadastrada.
 
 Todas as mudanças relevantes deste projeto devem ser registradas neste arquivo.
 

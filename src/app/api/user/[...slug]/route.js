@@ -53,6 +53,73 @@ const disposableEmailDomains = new Set([
 
 const json = (body, status = 200) => NextResponse.json(body, { status });
 
+const FATURA_DAY_OPTIONS = new Set([15, 30, 60, 90]);
+
+const parseIsoDateOnly = (value) => {
+  const raw = String(value || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    return null;
+  }
+
+  const date = new Date(`${raw}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date;
+};
+
+const buildFaturaPeriodFilter = (request) => {
+  const searchParams = request.nextUrl.searchParams;
+  const startDateRaw = searchParams.get("startDate") || "";
+  const endDateRaw = searchParams.get("endDate") || "";
+
+  if (startDateRaw || endDateRaw) {
+    const startDate = parseIsoDateOnly(startDateRaw);
+    const endDate = parseIsoDateOnly(endDateRaw);
+
+    if (!startDate || !endDate) {
+      return { error: "Período inválido. Informe datas no formato AAAA-MM-DD." };
+    }
+
+    if (startDate > endDate) {
+      return { error: "Período inválido. A data inicial deve ser menor ou igual à data final." };
+    }
+
+    const periodStart = new Date(startDate);
+    periodStart.setUTCHours(0, 0, 0, 0);
+
+    const periodEnd = new Date(endDate);
+    periodEnd.setUTCHours(23, 59, 59, 999);
+
+    return {
+      mode: "custom",
+      periodStart,
+      periodEnd,
+      startDate: startDateRaw,
+      endDate: endDateRaw,
+      days: null
+    };
+  }
+
+  const parsedDays = Number(searchParams.get("days") || 15);
+  const days = FATURA_DAY_OPTIONS.has(parsedDays) ? parsedDays : 15;
+
+  const periodEnd = new Date();
+  const periodStart = new Date(periodEnd);
+  periodStart.setHours(0, 0, 0, 0);
+  periodStart.setDate(periodStart.getDate() - (days - 1));
+
+  return {
+    mode: "days",
+    periodStart,
+    periodEnd,
+    startDate: "",
+    endDate: "",
+    days
+  };
+};
+
 const enforcePublicRouteRateLimit = (request, scope, limit, windowMs) => {
   const ip = getRequestClientIp(request) || "unknown";
   const rateLimit = consumeRateLimit({ scope, key: ip, limit, windowMs });
@@ -173,6 +240,90 @@ const isValidCellphone = (value) => {
   }
 
   return !/^(\d)\1{8}$/.test(digits.slice(2));
+};
+
+const normalizeEmail = (value) => String(value || "").trim().toLowerCase();
+const normalizeDigits = (value) => String(value || "").replace(/\D/g, "");
+
+const resolveAllowedPixKeys = (user) => {
+  const cpf = normalizeDigits(user?.cpf);
+  const email = normalizeEmail(user?.email);
+  const celular = normalizeDigits(user?.celular);
+
+  return {
+    cpf,
+    email,
+    celular,
+    values: [cpf, email, celular].filter(Boolean)
+  };
+};
+
+const postCadastrarChavePix = async (request, body) => {
+  const userId = Number(body.userId);
+  const chavePixRaw = String(body.chavePix || "").trim();
+
+  if (!userId) {
+    return json({ error: "Usuário inválido." }, 400);
+  }
+
+  if (!chavePixRaw) {
+    return json({ error: "Informe uma chave PIX válida para cadastro." }, 400);
+  }
+
+  const { auth, errorResponse } = enforceSensitiveRouteSecurity(
+    request,
+    userId,
+    "user:cadastrar-chave-pix",
+    5,
+    10 * 60 * 1000
+  );
+
+  if (errorResponse) {
+    return errorResponse;
+  }
+
+  try {
+    const user = await User.findByPk(auth.userId, {
+      attributes: ["id", "cpf", "email", "celular", "chave_pix"],
+      raw: true
+    });
+
+    if (!user) {
+      return json({ error: "Conta não encontrada." }, 404);
+    }
+
+    const chavePixAtual = String(user.chave_pix || "").trim();
+    if (chavePixAtual) {
+      return json(
+        { error: "A chave PIX já foi cadastrada e não pode ser alterada por esta área. Solicite ao admin por e-mail." },
+        409
+      );
+    }
+
+    const allowed = resolveAllowedPixKeys(user);
+    const chaveNormalizada = chavePixRaw.includes("@") ? normalizeEmail(chavePixRaw) : normalizeDigits(chavePixRaw);
+
+    if (!allowed.values.includes(chaveNormalizada)) {
+      return json(
+        { error: "A chave PIX deve ser exatamente seu CPF, e-mail de cadastro ou celular de cadastro." },
+        400
+      );
+    }
+
+    await User.update(
+      { chave_pix: chaveNormalizada },
+      { where: { id: auth.userId } }
+    );
+
+    return json({
+      success: true,
+      message: "Chave PIX cadastrada com sucesso.",
+      chavePix: chaveNormalizada,
+      canEdit: false
+    });
+  } catch {
+    return json({ error: "Erro ao cadastrar chave PIX." }, 500);
+  }
 };
 
 const isValidCpf = (value) => {
@@ -1202,6 +1353,7 @@ const getPerfil = async (userId) => {
         "cpf",
         "data_nascimento",
         "celular",
+        "chave_pix",
         "criado_em",
         "canal_verificacao",
         "conta_verificada",
@@ -1230,6 +1382,9 @@ const getPerfil = async (userId) => {
       cpf: user.cpf,
       dataNascimento: user.data_nascimento,
       celular: user.celular,
+      chavePix: user.chave_pix || "",
+      chavePixCadastrada: Boolean(user.chave_pix),
+      chavePixCanEdit: !user.chave_pix,
       criadoEm: user.criado_em,
       canalVerificacao: user.canal_verificacao,
       contaVerificada: Boolean(user.conta_verificada),
@@ -1244,17 +1399,35 @@ const getPerfil = async (userId) => {
   }
 };
 
-const getFatura = async (userId) => {
+const getFatura = async (userId, periodFilter) => {
   if (!userId) {
     return json({ error: "Usuário inválido." }, 400);
   }
+
+  if (!periodFilter?.periodStart || !periodFilter?.periodEnd) {
+    return json({ error: "Filtro de período inválido para consulta da fatura." }, 400);
+  }
+
+  const pagamentosWhere = {
+    user_id: userId,
+    created_at: {
+      [Op.between]: [periodFilter.periodStart, periodFilter.periodEnd]
+    }
+  };
+
+  const transacoesWhere = {
+    user_id: userId,
+    criado_em: {
+      [Op.between]: [periodFilter.periodStart, periodFilter.periodEnd]
+    }
+  };
 
   let historicoPagamentos = [];
   let historicoTransacoes = [];
 
   try {
     historicoPagamentos = await Pagamento.findAll({
-      where: { user_id: userId },
+      where: pagamentosWhere,
       attributes: [
         "id",
         "tipo",
@@ -1280,7 +1453,7 @@ const getFatura = async (userId) => {
 
   try {
     historicoTransacoes = await Transacao.findAll({
-      where: { user_id: userId },
+      where: transacoesWhere,
       attributes: [
         "id",
         "tipo",
@@ -1360,6 +1533,12 @@ const getFatura = async (userId) => {
     }));
 
   return json({
+    filtro: {
+      mode: periodFilter.mode,
+      days: periodFilter.days,
+      startDate: periodFilter.startDate,
+      endDate: periodFilter.endDate
+    },
     resumo: {
       totalEntradas: Number(totalEntradas.toFixed(2)),
       totalSaidas: Number(totalSaidas.toFixed(2)),
@@ -1431,6 +1610,10 @@ export async function POST(request, { params }) {
     return postSegurancaAcesso(request, body);
   }
 
+  if (path === "pix/chave") {
+    return postCadastrarChavePix(request, body);
+  }
+
   if (path === "2fa/cadastrar") {
     return postTwoFactorCadastrar(request, body);
   }
@@ -1490,13 +1673,18 @@ export async function GET(request, { params }) {
 
   if (path.startsWith("fatura/")) {
     const userId = Number(path.split("/")[1]);
+    const periodFilter = buildFaturaPeriodFilter(request);
+
+    if (periodFilter.error) {
+      return json({ error: periodFilter.error }, 400);
+    }
 
     const auth = authenticateUserRequest(request, userId);
     if (!auth.ok) {
       return json({ error: auth.error }, auth.status);
     }
 
-    return getFatura(userId);
+    return getFatura(userId, periodFilter);
   }
 
   return json({ error: "Rota não encontrada." }, 404);

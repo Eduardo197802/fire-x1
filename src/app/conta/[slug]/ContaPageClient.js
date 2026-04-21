@@ -37,6 +37,17 @@ const formatDate = (value) => {
   }).format(date);
 };
 
+const maskEmail = (value) => {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (!normalized.includes("@")) return normalized || "-";
+
+  const [local, domain] = normalized.split("@");
+  if (!local || !domain) return normalized;
+
+  const visible = local.slice(0, 2);
+  return `${visible}${"*".repeat(Math.max(local.length - 2, 2))}@${domain}`;
+};
+
 const maskCpf = (value) => {
   const digits = String(value || "").replace(/\D/g, "");
 
@@ -200,10 +211,20 @@ export default function ContaPageClient({ pageKey, page }) {
   const [saqueMessage, setSaqueMessage] = useState("");
   const [saqueLoading, setSaqueLoading] = useState(false);
   const [saqueResult, setSaqueResult] = useState(null);
+  const [saquePixReady, setSaquePixReady] = useState(false);
+
+  const [pixKeySelection, setPixKeySelection] = useState("");
+  const [pixKeyError, setPixKeyError] = useState("");
+  const [pixKeyMessage, setPixKeyMessage] = useState("");
 
   const [faturaLoading, setFaturaLoading] = useState(pageKey === "minha-fatura");
   const [faturaError, setFaturaError] = useState("");
+  const [faturaPeriodo, setFaturaPeriodo] = useState("15");
+  const [faturaStartDate, setFaturaStartDate] = useState("");
+  const [faturaEndDate, setFaturaEndDate] = useState("");
+  const [faturaCustomApplyToken, setFaturaCustomApplyToken] = useState(0);
   const [faturaData, setFaturaData] = useState({
+    filtro: null,
     resumo: null,
     cobrancas: [],
     historicoPagamentos: [],
@@ -301,6 +322,14 @@ export default function ContaPageClient({ pageKey, page }) {
 
         setSecurityChannel((data.canalVerificacao || "email").toLowerCase());
         setTwoFactorEmail(data.twoFactorDestination || data.email || "");
+        setSaquePixKey(data.chavePix || "");
+        setSaquePixReady(Boolean(data.chavePix));
+
+        if (data.chavePix) {
+          setPixKeySelection(data.chavePix);
+        } else if (data.email) {
+          setPixKeySelection(String(data.email).toLowerCase());
+        }
       } catch (error) {
         setState({
           loading: false,
@@ -312,6 +341,41 @@ export default function ContaPageClient({ pageKey, page }) {
 
     loadProfile();
   }, [pageKey, router]);
+
+  useEffect(() => {
+    if (pageKey !== "sacar") {
+      return;
+    }
+
+    const sessionUserId = Number(userId || resolveSessionUserId());
+    if (!sessionUserId) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadPixKeyStatus = async () => {
+      try {
+        const response = await fetch(`/api/user/perfil/${sessionUserId}`, { cache: "no-store" });
+        const data = await response.json();
+
+        if (!response.ok || cancelled) {
+          return;
+        }
+
+        setSaquePixKey(data.chavePix || "");
+        setSaquePixReady(Boolean(data.chavePix));
+      } catch {
+        // Nao interrompe o fluxo de saque por falha temporaria de consulta.
+      }
+    };
+
+    loadPixKeyStatus();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pageKey, userId]);
 
   useEffect(() => {
     if (pageKey !== "minha-fatura") {
@@ -332,7 +396,20 @@ export default function ContaPageClient({ pageKey, page }) {
         setFaturaLoading(true);
         setFaturaError("");
 
-        const response = await fetch(`/api/user/fatura/${sessionUserId}`, {
+        if (faturaPeriodo === "custom" && (!faturaStartDate || !faturaEndDate || faturaCustomApplyToken === 0)) {
+          setFaturaLoading(false);
+          return;
+        }
+
+        const query = new URLSearchParams();
+        if (faturaPeriodo === "custom") {
+          query.set("startDate", faturaStartDate);
+          query.set("endDate", faturaEndDate);
+        } else {
+          query.set("days", faturaPeriodo);
+        }
+
+        const response = await fetch(`/api/user/fatura/${sessionUserId}?${query.toString()}`, {
           cache: "no-store"
         });
         const data = await response.json();
@@ -351,6 +428,7 @@ export default function ContaPageClient({ pageKey, page }) {
         }
 
         setFaturaData({
+          filtro: data.filtro || null,
           resumo: data.resumo || null,
           cobrancas: Array.isArray(data.cobrancas) ? data.cobrancas : [],
           historicoPagamentos: Array.isArray(data.historicoPagamentos) ? data.historicoPagamentos : [],
@@ -372,7 +450,25 @@ export default function ContaPageClient({ pageKey, page }) {
     return () => {
       cancelled = true;
     };
-  }, [pageKey, userId, router]);
+  }, [pageKey, userId, router, faturaPeriodo, faturaStartDate, faturaEndDate, faturaCustomApplyToken]);
+
+  useEffect(() => {
+    if (pageKey !== "minha-fatura") {
+      return;
+    }
+
+    if (faturaPeriodo !== "custom") {
+      setFaturaError("");
+      return;
+    }
+
+    if (faturaStartDate && faturaEndDate && faturaStartDate > faturaEndDate) {
+      setFaturaError("Período inválido. A data inicial deve ser menor ou igual à data final.");
+      return;
+    }
+
+    setFaturaError("");
+  }, [pageKey, faturaPeriodo, faturaStartDate, faturaEndDate]);
 
   useEffect(() => {
     if (pageKey !== "adicionar-fundo" || !depositData?.txid || !depositDeadlineAt) {
@@ -469,6 +565,33 @@ export default function ContaPageClient({ pageKey, page }) {
     };
   }, [pageKey, depositData, depositDeadlineAt, userId]);
 
+  const onSelectFaturaPeriodo = (value) => {
+    setFaturaPeriodo(value);
+    setFaturaError("");
+
+    if (value === "custom") {
+      setFaturaCustomApplyToken(0);
+    } else {
+      setFaturaStartDate("");
+      setFaturaEndDate("");
+    }
+  };
+
+  const onApplyCustomFaturaPeriodo = () => {
+    if (!faturaStartDate || !faturaEndDate) {
+      setFaturaError("Para períodos acima de 90 dias, preencha a data inicial e final.");
+      return;
+    }
+
+    if (faturaStartDate > faturaEndDate) {
+      setFaturaError("Período inválido. A data inicial deve ser menor ou igual à data final.");
+      return;
+    }
+
+    setFaturaError("");
+    setFaturaCustomApplyToken((prev) => prev + 1);
+  };
+
   const accountMeta = useMemo(() => {
     if (!state.profile) {
       return [];
@@ -494,6 +617,56 @@ export default function ContaPageClient({ pageKey, page }) {
   const onSaveProfile = (event) => {
     event.preventDefault();
     setSaveMessage("Perfil atualizado neste ambiente. Se quiser, eu também conecto o salvar no banco.");
+  };
+
+  const onSavePixKey = async () => {
+    if (!userId) {
+      setPixKeyError("Sessão inválida. Faça login novamente.");
+      return;
+    }
+
+    if (!pixKeySelection) {
+      setPixKeyError("Selecione uma opção de chave PIX válida.");
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      setPixKeyError("");
+      setPixKeyMessage("");
+
+      const response = await fetch("/api/user/pix/chave", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, chavePix: pixKeySelection })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Não foi possível cadastrar a chave PIX.");
+      }
+
+      setPixKeyMessage(data.message || "Chave PIX cadastrada com sucesso.");
+      setSaquePixKey(data.chavePix || pixKeySelection);
+      setSaquePixReady(true);
+
+      setState((prev) => ({
+        ...prev,
+        profile: prev.profile
+          ? {
+              ...prev.profile,
+              chavePix: data.chavePix || pixKeySelection,
+              chavePixCadastrada: true,
+              chavePixCanEdit: false
+            }
+          : prev.profile
+      }));
+    } catch (error) {
+      setPixKeyError(error.message);
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const onPasswordFieldChange = (field) => (event) => {
@@ -1066,8 +1239,8 @@ export default function ContaPageClient({ pageKey, page }) {
       return;
     }
 
-    if (!saquePixKey.trim()) {
-      setSaqueError("Informe a chave PIX para sacar.");
+    if (!saquePixReady) {
+      setSaqueError("Cadastre sua chave PIX em Meu perfil antes de solicitar saque.");
       setSaqueMessage("");
       return;
     }
@@ -1152,6 +1325,55 @@ export default function ContaPageClient({ pageKey, page }) {
                 </nav>
 
                 {renderTabContent()}
+
+                <section className={styles.invoicePanel}>
+                  <h2>Chave PIX para saque</h2>
+                  <p className={styles.tabHelper}>
+                    A chave PIX pode ser cadastrada somente uma vez e não pode ser alterada pelo usuário.
+                    Para alteração, solicite ao admin por e-mail.
+                  </p>
+
+                  <div className={styles.tabPanelForm}>
+                    <label className={styles.fieldGroup}>
+                      <span>Escolha a chave permitida</span>
+                      <select
+                        className={styles.fieldSelect}
+                        value={pixKeySelection}
+                        onChange={(event) => {
+                          setPixKeySelection(event.target.value);
+                          setPixKeyError("");
+                          setPixKeyMessage("");
+                        }}
+                        disabled={Boolean(state.profile?.chavePixCadastrada)}
+                      >
+                        {state.profile?.cpf ? (
+                          <option value={String(state.profile.cpf).replace(/\D/g, "")}>CPF: {maskCpf(state.profile.cpf)}</option>
+                        ) : null}
+                        {state.profile?.email ? (
+                          <option value={String(state.profile.email).toLowerCase()}>E-mail: {maskEmail(state.profile.email)}</option>
+                        ) : null}
+                        {state.profile?.celular ? (
+                          <option value={String(state.profile.celular).replace(/\D/g, "")}>Celular: {formatPhone(state.profile.celular)}</option>
+                        ) : null}
+                      </select>
+                    </label>
+
+                    {state.profile?.chavePixCadastrada ? (
+                      <p className={styles.infoMessage}>
+                        Chave cadastrada: {String(state.profile?.chavePix || "-")}. Para alterar, solicite ao admin por e-mail.
+                      </p>
+                    ) : (
+                      <div className={styles.actionsRow}>
+                        <button type="button" className={styles.primaryButton} onClick={onSavePixKey} disabled={actionLoading}>
+                          Cadastrar chave PIX
+                        </button>
+                      </div>
+                    )}
+
+                    {pixKeyError ? <p className={styles.errorMessage}>{pixKeyError}</p> : null}
+                    {pixKeyMessage ? <p className={styles.successMessage}>{pixKeyMessage}</p> : null}
+                  </div>
+                </section>
               </div>
             ) : null}
           </>
@@ -1234,9 +1456,14 @@ export default function ContaPageClient({ pageKey, page }) {
                   setSaqueError("");
                   setSaqueMessage("");
                 }}
-                placeholder="seu-email@email.com ou CPF"
+                placeholder="Cadastre em Meu perfil"
+                readOnly
               />
             </label>
+
+            <p className={styles.tabHelper}>
+              O saque usa a chave PIX cadastrada em Meu perfil. Alteração de chave somente via admin por e-mail.
+            </p>
 
             <div className={styles.actionsRow}>
               <button
@@ -1271,6 +1498,63 @@ export default function ContaPageClient({ pageKey, page }) {
 
         {pageKey === "minha-fatura" ? (
           <div className={styles.invoiceSection}>
+            <section className={styles.invoiceFiltersPanel}>
+              <h2>Período da fatura</h2>
+              <div className={styles.invoicePeriodButtons}>
+                {["15", "30", "60", "90"].map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    className={`${styles.invoicePeriodButton} ${faturaPeriodo === option ? styles.invoicePeriodButtonActive : ""}`}
+                    onClick={() => onSelectFaturaPeriodo(option)}
+                  >
+                    {option} dias
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className={`${styles.invoicePeriodButton} ${faturaPeriodo === "custom" ? styles.invoicePeriodButtonActive : ""}`}
+                  onClick={() => onSelectFaturaPeriodo("custom")}
+                >
+                  Acima de 90 dias
+                </button>
+              </div>
+
+              {faturaPeriodo === "custom" ? (
+                <div className={styles.invoiceCustomPeriodRow}>
+                  <label className={styles.fieldGroup}>
+                    <span>Data inicial</span>
+                    <input
+                      type="date"
+                      value={faturaStartDate}
+                      onChange={(event) => {
+                        setFaturaStartDate(event.target.value);
+                        setFaturaCustomApplyToken(0);
+                      }}
+                    />
+                  </label>
+
+                  <label className={styles.fieldGroup}>
+                    <span>Data final</span>
+                    <input
+                      type="date"
+                      value={faturaEndDate}
+                      onChange={(event) => {
+                        setFaturaEndDate(event.target.value);
+                        setFaturaCustomApplyToken(0);
+                      }}
+                    />
+                  </label>
+
+                  <div className={styles.invoiceCustomPeriodAction}>
+                    <button type="button" className={styles.primaryButton} onClick={onApplyCustomFaturaPeriodo}>
+                      Aplicar período
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </section>
+
             {faturaLoading ? <p className={styles.infoMessage}>Carregando histórico financeiro...</p> : null}
             {faturaError ? <p className={styles.errorMessage}>{faturaError}</p> : null}
 

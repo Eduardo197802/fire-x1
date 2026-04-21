@@ -227,6 +227,60 @@
   gap: 14px;
 }
 
+.invoiceFiltersPanel {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.02);
+  display: grid;
+  gap: 12px;
+}
+
+.invoiceFiltersPanel h2 {
+  margin: 0;
+  font-size: 20px;
+  font-family: var(--font-display), sans-serif;
+}
+
+.invoicePeriodButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.invoicePeriodButton {
+  min-height: 38px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text);
+  padding: 0 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.invoicePeriodButtonActive {
+  border-color: transparent;
+  color: #180c02;
+  background: linear-gradient(135deg, #ffd1a5 0%, var(--accent) 100%);
+}
+
+.invoiceCustomPeriodRow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+
+.invoiceCustomPeriodAction {
+  display: flex;
+  align-items: end;
+}
+
+.invoiceCustomPeriodAction .primaryButton {
+  width: 100%;
+}
+
 .invoiceSummaryGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -383,6 +437,10 @@
   .invoiceSummaryGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .invoiceCustomPeriodRow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 760px) {
@@ -411,6 +469,10 @@
   }
 
   .invoiceSummaryGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .invoiceCustomPeriodRow {
     grid-template-columns: 1fr;
   }
 
