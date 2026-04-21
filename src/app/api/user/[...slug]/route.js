@@ -7,9 +7,13 @@ import {
   SESSION_COOKIE_NAME,
   authenticateUserRequest,
   clearSessionCookieOptions,
+  decodeAuthToken,
   encodeAuthToken,
+  extractSessionToken,
   getSessionCookieOptions,
-  hasAuthSecret
+  hasAuthSecret,
+  markUserSessionActive,
+  revokeUserSession
 } from "../../../../services/session-auth";
 import {
   sendBetNotificationEmail,
@@ -17,6 +21,12 @@ import {
   sendRegistrationConfirmationEmail,
   sendTwoFactorVerificationEmail
 } from "../../../../services/email";
+import { sendPasswordRecoveryWhatsApp } from "../../../../services/whatsapp";
+import {
+  createPixChangeRequest,
+  createSessionRecord,
+  revokeSessionRecord
+} from "../../../../services/operational-support";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -326,6 +336,34 @@ const postCadastrarChavePix = async (request, body) => {
   }
 };
 
+const postSolicitarAlteracaoPix = async (request, body) => {
+  const userId = Number(body.userId);
+  const novaChavePix = String(body.novaChavePix || "").trim();
+
+  const { auth, errorResponse } = enforceSensitiveRouteSecurity(
+    request,
+    userId,
+    "user:solicitar-alteracao-pix",
+    5,
+    10 * 60 * 1000
+  );
+
+  if (errorResponse) {
+    return errorResponse;
+  }
+
+  try {
+    const solicitacao = await createPixChangeRequest({
+      userId: auth.userId,
+      novaChavePix,
+      motivo: body.motivo
+    });
+    return json({ success: true, solicitacao });
+  } catch (error) {
+    return json({ error: error.message || "Erro ao solicitar alteracao de PIX." }, 400);
+  }
+};
+
 const isValidCpf = (value) => {
   const cpf = String(value || "").replace(/\D/g, "");
 
@@ -388,11 +426,16 @@ const maskPhone = (phone) => {
 };
 
 const getMaskedDestination = (channel, email, cellphone) =>
-  channel === "sms" ? maskPhone(cellphone) : maskEmail(email);
+  ["sms", "whatsapp"].includes(channel) ? maskPhone(cellphone) : maskEmail(email);
 
 const dispatchVerificationCode = async ({ channel, email, name, cellphone, code }) => {
   if (channel === "sms") {
     console.log(`[Fire X1] SMS pendente de integração para ${cellphone}. Código: ${code}`);
+    return;
+  }
+
+  if (channel === "whatsapp") {
+    await sendPasswordRecoveryWhatsApp({ to: cellphone, code });
     return;
   }
 
@@ -412,7 +455,7 @@ const getPath = async (paramsPromise) => {
   return Array.isArray(slug) ? slug.join("/") : String(slug);
 };
 
-const postLogin = async (body) => {
+const postLogin = async (body, request) => {
   const email = String(body.email || "").trim().toLowerCase();
   const senha = String(body.senha || "");
 
@@ -442,7 +485,15 @@ const postLogin = async (body) => {
       return json({ error: "Configuracao ausente de segredo de sessao." }, 500);
     }
 
-    const sessionToken = encodeAuthToken(user.id);
+    const expiresAt = Date.now() + 24 * 60 * 60 * 1000;
+    const sessionId = await createSessionRecord({
+      userId: user.id,
+      userAgent: request?.headers?.get("user-agent") || "",
+      ip: getRequestClientIp(request),
+      expiresAt
+    });
+    markUserSessionActive(user.id, sessionId);
+    const sessionToken = encodeAuthToken(user.id, sessionId);
     if (!sessionToken) {
       return json({ error: "Nao foi possivel iniciar sessao." }, 500);
     }
@@ -461,7 +512,12 @@ const postLogin = async (body) => {
   }
 };
 
-const postLogout = async () => {
+const postLogout = async (request) => {
+  const decoded = decodeAuthToken(extractSessionToken(request));
+  if (decoded?.userId && decoded?.sessionId) {
+    revokeUserSession(decoded.userId, decoded.sessionId);
+    await revokeSessionRecord({ userId: decoded.userId, sessionId: decoded.sessionId });
+  }
   const response = json({ success: true });
   response.cookies.set(SESSION_COOKIE_NAME, "", clearSessionCookieOptions());
   return response;
@@ -731,6 +787,7 @@ const postRecuperarSenhaSolicitar = async (request, body) => {
   if (rateLimitError) return rateLimitError;
 
   const normalizedEmail = String(body.email || "").trim().toLowerCase();
+  const channel = String(body.channel || "email").trim().toLowerCase();
 
   if (!isValidEmail(normalizedEmail)) {
     return json({ error: "Informe um e-mail válido." }, 400);
@@ -739,7 +796,7 @@ const postRecuperarSenhaSolicitar = async (request, body) => {
   try {
     const user = await User.findOne({
       where: { email: normalizedEmail },
-      attributes: ["id", "email"],
+      attributes: ["id", "email", "celular"],
       raw: true
     });
 
@@ -759,11 +816,18 @@ const postRecuperarSenhaSolicitar = async (request, body) => {
     );
 
     try {
-      await sendPasswordRecoveryEmail({
+      if (channel === "whatsapp") {
+        if (!user.celular) {
+          return json({ error: "Conta sem celular cadastrado para WhatsApp." }, 400);
+        }
+        await sendPasswordRecoveryWhatsApp({ to: user.celular, code: resetCode });
+      } else {
+        await sendPasswordRecoveryEmail({
         to: user.email,
         code: resetCode,
         expiresInMinutes: CODE_TTL_MINUTES
-      });
+        });
+      }
     } catch (emailError) {
       console.error("Erro ao enviar e-mail de recuperação:", emailError.message);
       return json(
@@ -775,6 +839,8 @@ const postRecuperarSenhaSolicitar = async (request, body) => {
     return json({
       success: true,
       message: "Código de recuperação enviado por e-mail.",
+      channel,
+      maskedDestination: getMaskedDestination(channel, user.email, user.celular),
       previewCode: previewCode(resetCode)
     });
   } catch {
@@ -1575,11 +1641,11 @@ export async function POST(request, { params }) {
   const body = await parseJson(request);
 
   if (path === "login") {
-    return postLogin(body);
+    return postLogin(body, request);
   }
 
   if (path === "logout") {
-    return postLogout();
+    return postLogout(request);
   }
 
   if (path === "criar") {
@@ -1612,6 +1678,10 @@ export async function POST(request, { params }) {
 
   if (path === "pix/chave") {
     return postCadastrarChavePix(request, body);
+  }
+
+  if (path === "pix/alteracao") {
+    return postSolicitarAlteracaoPix(request, body);
   }
 
   if (path === "2fa/cadastrar") {

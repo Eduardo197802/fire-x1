@@ -11,6 +11,7 @@ const STEP_CONCLUIDO = "concluido";
 export default function RecuperarSenhaPage() {
   const [step, setStep] = useState(STEP_EMAIL);
   const [email, setEmail] = useState("");
+  const [channel, setChannel] = useState("email");
   const [codigo, setCodigo] = useState("");
   const [novaSenha, setNovaSenha] = useState("");
   const [confirmarSenha, setConfirmarSenha] = useState("");
@@ -38,7 +39,7 @@ export default function RecuperarSenhaPage() {
       const res = await fetch("/api/user/recuperar-senha/solicitar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim() }),
+        body: JSON.stringify({ email: email.trim(), channel }),
       });
 
       const data = await res.json();
@@ -127,6 +128,19 @@ export default function RecuperarSenhaPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                 />
+              </label>
+
+              <label className={styles.label} htmlFor="channel">
+                Canal de envio
+                <select
+                  id="channel"
+                  className={styles.input}
+                  value={channel}
+                  onChange={(e) => setChannel(e.target.value)}
+                >
+                  <option value="email">E-mail</option>
+                  <option value="whatsapp">WhatsApp</option>
+                </select>
               </label>
 
               <button type="submit" className={styles.button} disabled={loading}>

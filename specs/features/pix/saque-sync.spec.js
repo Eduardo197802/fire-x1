@@ -1,4 +1,9 @@
-import { classifyPixWithdrawStatus, syncPendingPixWithdrawals } from "@/services/pix-withdraw-sync";
+import {
+  classifyPixWithdrawStatus,
+  rejectPixWithdrawManually,
+  syncPendingPixWithdrawals,
+  syncPixWithdrawById,
+} from "@/services/pix-withdraw-sync";
 
 jest.mock("@/services/db", () => ({
   Pagamento: {
@@ -15,6 +20,7 @@ jest.mock("@/services/db", () => ({
     create: jest.fn(),
   },
   sequelize: {
+    query: jest.fn(),
     transaction: jest.fn(async (callback) =>
       callback({
         LOCK: { UPDATE: "UPDATE" },
@@ -117,5 +123,97 @@ describe("Sincronizacao de saque PIX Efi", () => {
       expect.objectContaining({ where: { id: 11 } })
     );
     expect(Transacao.create).not.toHaveBeenCalled();
+  });
+
+  it("permite rejeicao manual com devolucao de saldo e log admin", async () => {
+    const { Pagamento, User, sequelize } = require("@/services/db");
+
+    Pagamento.findByPk.mockResolvedValue({
+      id: 12,
+      user_id: 9,
+      tipo: "saque",
+      metodo: "pix",
+      status: "em_processamento",
+      valor: "11.25",
+      txid: "saque-manual",
+    });
+    User.findByPk.mockResolvedValue({ id: 9, saldo: "1.75" });
+
+    const result = await rejectPixWithdrawManually({
+      pagamentoId: 12,
+      adminId: 3,
+      motivo: "Comprovante inconsistente",
+    });
+
+    expect(result).toMatchObject({
+      id: 12,
+      userId: 9,
+      status: "falha",
+      valor: "11.25",
+      saldoDevolvido: true,
+    });
+    expect(User.update).toHaveBeenCalledWith(
+      { saldo: 13 },
+      expect.objectContaining({ where: { id: 9 } })
+    );
+    expect(Pagamento.update).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "falha" }),
+      expect.objectContaining({ where: { id: 12 } })
+    );
+    expect(sequelize.query).toHaveBeenCalledWith(
+      expect.stringContaining("INSERT INTO admin_access_logs"),
+      expect.objectContaining({
+        replacements: expect.objectContaining({
+          adminId: 3,
+          action: "pix_saque_rejeicao_manual",
+        }),
+      })
+    );
+  });
+
+  it("sincroniza saque individual por id", async () => {
+    const { Pagamento, Transacao, sequelize } = require("@/services/db");
+    const { getPixWithdrawStatus } = require("@/services/pix");
+
+    const pagamento = {
+      id: 13,
+      user_id: 10,
+      tipo: "saque",
+      metodo: "pix",
+      status: "em_processamento",
+      valor: "9.00",
+      txid: "saque-sync-one",
+      efi_end_to_end_id: "E2E-ONE",
+    };
+
+    Pagamento.findByPk.mockResolvedValue(pagamento);
+    Transacao.findOne.mockResolvedValue(null);
+    getPixWithdrawStatus.mockResolvedValue({ endToEndId: "E2E-ONE", status: "REALIZADO" });
+
+    const result = await syncPixWithdrawById({ pagamentoId: 13, adminId: 4 });
+
+    expect(result).toMatchObject({
+      id: 13,
+      status: "concluido",
+      action: "updated",
+    });
+    expect(Transacao.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        user_id: 10,
+        tipo: "SAQUE",
+        valor: 9,
+        referencia_externa: "saque-sync-one",
+      }),
+      expect.any(Object)
+    );
+    expect(sequelize.query).toHaveBeenCalledWith(
+      expect.stringContaining("INSERT INTO admin_access_logs"),
+      expect.objectContaining({
+        replacements: expect.objectContaining({
+          adminId: 4,
+          action: "pix_saque_sincronizacao_manual",
+        }),
+      })
+    );
   });
 });

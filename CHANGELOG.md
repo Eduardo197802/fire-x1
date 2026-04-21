@@ -1,6 +1,27 @@
 # Changelog
 
+## 2026-04-21 - Specs 009 a 012 implementadas
+- Implementada integracao WhatsApp Business configuravel em `src/services/whatsapp.js`, usando Cloud API da Meta quando `WHATSAPP_PROVIDER=meta-cloud` e modo mock controlado fora de producao.
+- Recuperacao de senha passou a aceitar canal `whatsapp` no backend e a tela `src/app/recuperar-senha/page.js` ganhou seletor de canal.
+- Criada migration `015-create-operational-support-tables.js` com `user_sessions`, `pix_change_requests` e `admin_financial_actions`, integrada ao bootstrap de schema.
+- Login de usuario passou a gerar `session_id`, revogar sessoes anteriores e registrar sessao ativa; logout revoga a sessao atual.
+- Criado fluxo de solicitacao de alteracao de chave PIX via `POST /api/user/pix/alteracao`, com formulario no perfil do usuario e aprovacao/rejeicao admin em `/api/admin/pix/alteracoes`.
+- Painel `/admin/pix` passou a listar solicitacoes pendentes de alteracao PIX, aprovar/rejeitar no admin e executar credito manual de deposito com erro.
+- Criado endpoint `POST /api/admin/pix/depositos/credito-manual`, com credito em saldo, transacao financeira e auditoria em `admin_financial_actions`/`admin_access_logs`.
+- Criados `GET /api/admin/pix/depositos` e `GET /api/admin/pix/depositos/:id` para buscar depositos por status, usuario, valor, txid, codigo copia-e-cola/comprovante, referencia ou dados do usuario.
+- Painel `/admin/pix` passou a exibir busca de depositos e botao `Usar` para preencher o credito manual a partir do deposito encontrado.
+- Validacao executada: `npx jest --runInBand --watchPathIgnorePatterns=.next --runTestsByPath specs/features/admin/pix-depositos.spec.js specs/features/admin/pix-saques.spec.js specs/features/admin/pix-saques-acoes.spec.js specs/features/pix/saque-sync.spec.js` e `npx next build --webpack`.
+
 ## 2026-04-21
+- Iniciado Checkpoint 1 da Spec 013 em `specs/013-admin-operacao-saque-pix/` com API admin para operacao de saques PIX.
+- Criado `GET /api/admin/pix/saques` para listar saques PIX com filtros por status, usuario, periodo e busca por requestId/e2eId/usuario.
+- Criado `GET /api/admin/pix/saques/:id` para detalhar uma solicitacao de saque PIX com dados do usuario, chave destino, status, requestId e endToEndId.
+- Adicionados testes em `specs/features/admin/pix-saques.spec.js`; validacao executada: `npx jest --runInBand --runTestsByPath specs/features/admin/pix-saques.spec.js`.
+- Concluido Checkpoint 2 da Spec 013 com `POST /api/admin/pix/saques/:id/sincronizar` para sincronizacao individual com a Efi e `POST /api/admin/pix/saques/:id/rejeitar` para rejeicao manual com devolucao de saldo.
+- As acoes administrativas de saque PIX passaram a registrar auditoria em `admin_access_logs` com admin, acao, saque, usuario, valor e justificativa/status.
+- Adicionados testes em `specs/features/admin/pix-saques-acoes.spec.js` e ampliados testes de `specs/features/pix/saque-sync.spec.js`; validacao executada: `npx jest --runInBand --runTestsByPath specs/features/pix/saque-sync.spec.js specs/features/admin/pix-saques-acoes.spec.js specs/features/admin/pix-saques.spec.js`.
+- Concluida a Spec 013 com UI operacional em `src/app/admin/pix/AdminPixClient.js`, incluindo filtros, tabela de saques, detalhe, sincronizacao individual e rejeicao manual com justificativa.
+- Validacao final da Spec 013 executada com testes focados e build: `npx jest --runInBand --runTestsByPath specs/features/pix/saque-sync.spec.js specs/features/admin/pix-saques-acoes.spec.js specs/features/admin/pix-saques.spec.js` e `npx next build --webpack`.
 - Concluida a Spec 008 em `specs/008-sincronizar-saque-pix-efi/` com sincronizacao operacional de saques PIX pendentes na Efi.
 - Adicionada consulta `pixSendDetail` em `src/services/pix.js` para obter o status real do envio PIX por `endToEndId`.
 - Criado `src/services/pix-withdraw-sync.js` para sincronizar saques `em_processamento`: confirma como `concluido` quando a Efi retorna liquidacao, ou marca `falha` e devolve saldo quando a Efi rejeita/cancela.

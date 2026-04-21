@@ -2,6 +2,7 @@ import crypto from "crypto";
 
 const SESSION_TTL_HOURS = 24;
 export const SESSION_COOKIE_NAME = "firex1_session";
+const activeUserSessions = new Map();
 
 const resolveAuthSecret = () =>
   String(process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || process.env.JWT_SECRET || "").trim();
@@ -34,7 +35,7 @@ const safeEqual = (received, expected) => {
   );
 };
 
-export const encodeAuthToken = (userId) => {
+export const encodeAuthToken = (userId, sessionId = "") => {
   const secret = getAuthSecret();
   if (!secret) {
     return "";
@@ -47,12 +48,18 @@ export const encodeAuthToken = (userId) => {
   }
 
   const expiresAt = Date.now() + SESSION_TTL_HOURS * 60 * 60 * 1000;
-  const payload = `${normalizedUserId}.${expiresAt}`;
+  const normalizedSessionId = String(sessionId || "");
+  const payload = normalizedSessionId
+    ? `${normalizedUserId}.${expiresAt}.${normalizedSessionId}`
+    : `${normalizedUserId}.${expiresAt}`;
   const signature = crypto
     .createHmac("sha256", secret)
     .update(payload)
     .digest("base64url");
 
+  if (normalizedSessionId) {
+    activeUserSessions.set(String(normalizedUserId), normalizedSessionId);
+  }
   return `${payload}.${signature}`;
 };
 
@@ -62,13 +69,17 @@ export const decodeAuthToken = (token) => {
     return null;
   }
 
-  const [userIdPart, expiresAtPart, signature] = String(token || "").split(".");
+  const parts = String(token || "").split(".");
+  const [userIdPart, expiresAtPart] = parts;
+  const hasSessionId = parts.length === 4;
+  const sessionId = hasSessionId ? parts[2] : "";
+  const signature = hasSessionId ? parts[3] : parts[2];
 
   if (!userIdPart || !expiresAtPart || !signature) {
     return null;
   }
 
-  const payload = `${userIdPart}.${expiresAtPart}`;
+  const payload = hasSessionId ? `${userIdPart}.${expiresAtPart}.${sessionId}` : `${userIdPart}.${expiresAtPart}`;
   const expectedSignature = crypto
     .createHmac("sha256", secret)
     .update(payload)
@@ -87,7 +98,8 @@ export const decodeAuthToken = (token) => {
 
   return {
     userId,
-    expiresAt
+    expiresAt,
+    sessionId
   };
 };
 
@@ -156,8 +168,28 @@ export const authenticateUserRequest = (request, requestedUserId) => {
     };
   }
 
+  const activeSessionId = activeUserSessions.get(String(decoded.userId));
+  if (decoded.sessionId && activeSessionId && activeSessionId !== decoded.sessionId) {
+    return {
+      ok: false,
+      status: 401,
+      error: "Sessão encerrada por novo login."
+    };
+  }
+
   return {
     ok: true,
-    userId: Number(decoded.userId)
+    userId: Number(decoded.userId),
+    sessionId: decoded.sessionId || ""
   };
+};
+
+export const markUserSessionActive = (userId, sessionId) => {
+  if (userId && sessionId) activeUserSessions.set(String(userId), String(sessionId));
+};
+
+export const revokeUserSession = (userId, sessionId) => {
+  if (userId && sessionId && activeUserSessions.get(String(userId)) === String(sessionId)) {
+    activeUserSessions.delete(String(userId));
+  }
 };

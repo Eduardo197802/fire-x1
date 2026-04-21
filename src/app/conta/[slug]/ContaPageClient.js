@@ -216,6 +216,8 @@ export default function ContaPageClient({ pageKey, page }) {
   const [pixKeySelection, setPixKeySelection] = useState("");
   const [pixKeyError, setPixKeyError] = useState("");
   const [pixKeyMessage, setPixKeyMessage] = useState("");
+  const [pixChangeKey, setPixChangeKey] = useState("");
+  const [pixChangeReason, setPixChangeReason] = useState("");
 
   const [faturaLoading, setFaturaLoading] = useState(pageKey === "minha-fatura");
   const [faturaError, setFaturaError] = useState("");
@@ -662,6 +664,38 @@ export default function ContaPageClient({ pageKey, page }) {
             }
           : prev.profile
       }));
+    } catch (error) {
+      setPixKeyError(error.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const onRequestPixChange = async () => {
+    if (!userId) {
+      setPixKeyError("Sessao invalida. Faca login novamente.");
+      return;
+    }
+    if (!pixChangeKey.trim()) {
+      setPixKeyError("Informe a nova chave PIX.");
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      setPixKeyError("");
+      setPixKeyMessage("");
+
+      const response = await fetch("/api/user/pix/alteracao", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, novaChavePix: pixChangeKey, motivo: pixChangeReason })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Nao foi possivel solicitar alteracao de PIX.");
+      setPixKeyMessage("Solicitacao enviada para aprovacao administrativa.");
+      setPixChangeKey("");
+      setPixChangeReason("");
     } catch (error) {
       setPixKeyError(error.message);
     } finally {
@@ -1363,9 +1397,32 @@ export default function ContaPageClient({ pageKey, page }) {
                     </label>
 
                     {state.profile?.chavePixCadastrada ? (
-                      <p className={styles.infoMessage}>
-                        Chave cadastrada: {String(state.profile?.chavePix || "-")}. Para alterar, solicite ao admin por e-mail.
-                      </p>
+                      <>
+                        <p className={styles.infoMessage}>
+                          Chave cadastrada: {String(state.profile?.chavePix || "-")}. Alteracoes passam por aprovacao administrativa.
+                        </p>
+                        <label className={styles.fieldGroup}>
+                          <span>Nova chave PIX</span>
+                          <input
+                            value={pixChangeKey}
+                            onChange={(event) => setPixChangeKey(event.target.value)}
+                            placeholder="CPF, e-mail ou celular"
+                          />
+                        </label>
+                        <label className={styles.fieldGroup}>
+                          <span>Motivo da alteracao</span>
+                          <input
+                            value={pixChangeReason}
+                            onChange={(event) => setPixChangeReason(event.target.value)}
+                            placeholder="Explique o motivo da troca"
+                          />
+                        </label>
+                        <div className={styles.actionsRow}>
+                          <button type="button" className={styles.secondaryButton} onClick={onRequestPixChange} disabled={actionLoading}>
+                            Solicitar alteracao
+                          </button>
+                        </div>
+                      </>
                     ) : (
                       <div className={styles.actionsRow}>
                         <button type="button" className={styles.primaryButton} onClick={onSavePixKey} disabled={actionLoading}>

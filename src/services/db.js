@@ -8,6 +8,7 @@ import { up as createSaldoTrigger } from "../migrations/011-create-saldo-trigger
 import { up as createFinancialViews } from "../migrations/012-create-financial-views.js";
 import { up as createAdminAccessLinks } from "../migrations/013-create-admin-access-links.js";
 import { up as createAdminUsersAndLogs } from "../migrations/014-create-admin-users-and-logs.js";
+import { up as createOperationalSupportTables } from "../migrations/015-create-operational-support-tables.js";
 import defineUserModel from "../models/User.js";
 import defineDisputaModel from "../models/Disputa.js";
 import definePagamentoModel from "../models/Pagamento.js";
@@ -177,6 +178,7 @@ const initPromise = (async () => {
   await createFinancialViews(queryInterface, Sequelize);
   await createAdminAccessLinks(queryInterface, Sequelize);
   await createAdminUsersAndLogs(queryInterface, Sequelize);
+  await createOperationalSupportTables(queryInterface, Sequelize);
 
   const usersColumns = await queryInterface.describeTable("users");
 

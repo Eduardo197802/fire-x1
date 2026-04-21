@@ -108,6 +108,163 @@ const markWithdrawAsFailed = async ({ pagamento, detail }) => {
   });
 };
 
+const logAdminPixAction = async ({ adminId, action, detail, transaction }) => {
+  await sequelize.query(
+    `
+    INSERT INTO admin_access_logs (admin_id, acao, detalhe, criado_em)
+    VALUES (:adminId, :action, :detail, NOW())
+    `,
+    {
+      replacements: {
+        adminId,
+        action,
+        detail: String(detail || "").slice(0, 500),
+      },
+      transaction,
+    }
+  );
+};
+
+export async function rejectPixWithdrawManually({ pagamentoId, adminId, motivo }) {
+  const id = Number(pagamentoId || 0);
+  const normalizedMotivo = String(motivo || "").trim();
+
+  if (!Number.isInteger(id) || id < 1) {
+    throw new Error("ID de saque invalido.");
+  }
+
+  if (normalizedMotivo.length < 5) {
+    throw new Error("Informe uma justificativa para rejeitar o saque.");
+  }
+
+  let result = null;
+
+  await sequelize.transaction(async (transaction) => {
+    const pagamento = await Pagamento.findByPk(id, {
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!pagamento) {
+      throw new Error("Saque PIX nao encontrado.");
+    }
+
+    if (
+      String(pagamento.tipo || "").toLowerCase() !== "saque" ||
+      String(pagamento.metodo || "").toLowerCase() !== "pix"
+    ) {
+      throw new Error("Pagamento informado nao e um saque PIX.");
+    }
+
+    if (String(pagamento.status || "").toLowerCase() !== "em_processamento") {
+      throw new Error("Apenas saques em processamento podem ser rejeitados manualmente.");
+    }
+
+    const user = await User.findByPk(pagamento.user_id, {
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    const valor = normalizeAmount(pagamento.valor || pagamento.amount);
+
+    if (user) {
+      await User.update(
+        { saldo: addMoney(user.saldo, valor) },
+        { where: { id: pagamento.user_id }, transaction }
+      );
+    }
+
+    await Pagamento.update(
+      {
+        status: "falha",
+        descricao: `Saque PIX rejeitado manualmente pelo admin ${adminId}: ${normalizedMotivo}`,
+        processado_em: new Date().toISOString(),
+      },
+      { where: { id }, transaction }
+    );
+
+    await logAdminPixAction({
+      adminId,
+      action: "pix_saque_rejeicao_manual",
+      detail: `saque=${id}; user=${pagamento.user_id}; valor=${valor.toFixed(2)}; motivo=${normalizedMotivo}`,
+      transaction,
+    });
+
+    result = {
+      id,
+      userId: Number(pagamento.user_id),
+      status: "falha",
+      valor: valor.toFixed(2),
+      saldoDevolvido: Boolean(user),
+    };
+  });
+
+  return result;
+}
+
+export async function syncPixWithdrawById({ pagamentoId, adminId }) {
+  const id = Number(pagamentoId || 0);
+
+  if (!Number.isInteger(id) || id < 1) {
+    throw new Error("ID de saque invalido.");
+  }
+
+  const pagamento = await Pagamento.findByPk(id);
+
+  if (!pagamento) {
+    throw new Error("Saque PIX nao encontrado.");
+  }
+
+  if (
+    String(pagamento.tipo || "").toLowerCase() !== "saque" ||
+    String(pagamento.metodo || "").toLowerCase() !== "pix"
+  ) {
+    throw new Error("Pagamento informado nao e um saque PIX.");
+  }
+
+  if (String(pagamento.status || "").toLowerCase() !== "em_processamento") {
+    return {
+      id,
+      status: pagamento.status,
+      action: "skipped",
+      reason: "saque nao esta em processamento",
+    };
+  }
+
+  const endToEndId = String(pagamento.efi_end_to_end_id || "").trim();
+  if (!endToEndId) {
+    return {
+      id,
+      status: "em_processamento",
+      action: "skipped",
+      reason: "sem endToEndId para consulta",
+    };
+  }
+
+  const detail = await getPixWithdrawStatus({ endToEndId });
+  const nextStatus = classifyPixWithdrawStatus(detail.status);
+
+  if (nextStatus === "concluido") {
+    await markWithdrawAsConcluded({ pagamento, detail });
+  } else if (nextStatus === "falha") {
+    await markWithdrawAsFailed({ pagamento, detail });
+  }
+
+  await logAdminPixAction({
+    adminId,
+    action: "pix_saque_sincronizacao_manual",
+    detail: `saque=${id}; e2e=${endToEndId}; efiStatus=${normalizeStatus(detail.status) || "sem status"}; resultado=${nextStatus}`,
+  });
+
+  return {
+    id,
+    status: nextStatus,
+    efiStatus: normalizeStatus(detail.status) || null,
+    endToEndId: detail.endToEndId || endToEndId,
+    action: nextStatus === "em_processamento" ? "kept" : "updated",
+  };
+}
+
 export async function syncPendingPixWithdrawals({ limit = 20 } = {}) {
   const pagamentos = await Pagamento.findAll({
     where: {
