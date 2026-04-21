@@ -14,22 +14,43 @@ const hashToken = (token) => crypto.createHash("sha256").update(String(token || 
 
 const generateRawToken = () => crypto.randomBytes(32).toString("hex");
 
-const resolveBaseUrl = (request) => {
+const PUBLIC_PRODUCTION_BASE_URL = "https://firex1play.com.br";
+
+const normalizeBaseUrl = (value) =>
+  String(value || "").trim().replace(/\/$/, "").replace(/^https?:\/\/www\./i, "https://");
+
+const isLocalHost = (host) => /^(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i.test(String(host || ""));
+
+const isLocalBaseUrl = (value) => {
+  try {
+    return isLocalHost(new URL(value).host);
+  } catch {
+    return false;
+  }
+};
+
+export const resolveAdminAccessBaseUrl = (request) => {
   const host = request?.headers?.get("host") || "localhost:3000";
   const proto = request?.headers?.get("x-forwarded-proto") || "http";
-  const requestBaseUrl = `${proto}://${host}`.replace(/^https?:\/\/www\./i, "https://");
+  const requestBaseUrl = normalizeBaseUrl(`${proto}://${host}`);
 
-  const configured = String(
+  const configured = normalizeBaseUrl(
     process.env.ADMIN_APP_BASE_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || ""
-  ).trim();
+  );
 
   if (configured) {
-    return configured.replace(/\/$/, "").replace(/^https?:\/\/www\./i, "https://");
+    if (process.env.NODE_ENV === "production" && isLocalBaseUrl(configured)) {
+      return PUBLIC_PRODUCTION_BASE_URL;
+    }
+
+    return configured;
   }
 
-  const isLocalRequest = /^(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i.test(host);
+  if (isLocalHost(host)) {
+    if (process.env.NODE_ENV === "production") {
+      return PUBLIC_PRODUCTION_BASE_URL;
+    }
 
-  if (isLocalRequest) {
     return requestBaseUrl;
   }
 
@@ -84,7 +105,7 @@ export const requestAdminAccessLink = async ({ email, request }) => {
     `Admin access link criado email=${authorizedAdmin.email} hash=${tokenHash.slice(0, 12)}... ttl=${ACCESS_LINK_TTL_MINUTES}m`
   );
 
-  const linkUrl = `${resolveBaseUrl(request)}/admin/acesso/${rawToken}`;
+  const linkUrl = `${resolveAdminAccessBaseUrl(request)}/admin/acesso/${rawToken}`;
 
   if (process.env.NODE_ENV !== "production") {
     console.warn(`Admin access link dev url=${linkUrl}`);

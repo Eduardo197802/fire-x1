@@ -183,13 +183,15 @@ export async function POST(request) {
       await Pagamento.update(
         {
           status: "falha",
-          descricao: `Falha no saque PIX: ${error.message}`,
+          descricao: `Falha no saque PIX: ${error?.message || error?.body?.mensagem || JSON.stringify(error?.body ?? error ?? "sem detalhes")}`,
           processado_em: new Date().toISOString(),
         },
         { where: { id: pagamentoId }, transaction }
       );
     });
 
-    return NextResponse.json({ error: "Falha ao processar saque PIX." }, { status: 502 });
+    const errDetail = error?.message || error?.body?.mensagem || JSON.stringify(error?.body ?? error ?? "");
+    console.error(`[Saque PIX] Erro sendPixWithdraw:`, JSON.stringify(error?.body ?? error ?? ""));
+    return NextResponse.json({ error: "Falha ao processar saque PIX.", detail: errDetail }, { status: 502 });
   }
 }
