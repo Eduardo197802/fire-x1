@@ -1,6 +1,11 @@
 # Changelog
 
 ## 2026-04-21
+- Concluida a Spec 008 em `specs/008-sincronizar-saque-pix-efi/` com sincronizacao operacional de saques PIX pendentes na Efi.
+- Adicionada consulta `pixSendDetail` em `src/services/pix.js` para obter o status real do envio PIX por `endToEndId`.
+- Criado `src/services/pix-withdraw-sync.js` para sincronizar saques `em_processamento`: confirma como `concluido` quando a Efi retorna liquidacao, ou marca `falha` e devolve saldo quando a Efi rejeita/cancela.
+- Criado endpoint administrativo `POST /api/admin/pix/sincronizar-saques` para executar a sincronizacao sob sessao admin valida.
+- Adicionados testes em `specs/features/pix/saque-sync.spec.js`; validacao executada: `npx jest --runInBand --runTestsByPath specs/unit/pix-withdraw-payload.spec.js specs/features/pix/saque.spec.js specs/features/pix/saque-sync.spec.js`.
 - Concluida a Spec 007 em `specs/007-corrigir-saque-pix-efi/` com correcao do payload de saque PIX enviado para a Efi.
 - Diagnosticada falha de saque PIX registrada em `pagamentos.descricao`, com rejeicao da Efi por payload sem `favorecido`.
 - Corrigido `sendPixWithdraw` em `src/services/pix.js` para enviar `pagador.chave` com a chave PIX da conta Efi e `favorecido.chave` com a chave PIX cadastrada pelo usuario.

@@ -202,3 +202,31 @@ export async function sendPixWithdraw({ valor, chavePix, requestId }) {
     raw: response,
   };
 }
+
+export async function getPixWithdrawStatus({ endToEndId }) {
+  const normalizedEndToEndId = String(endToEndId || "").trim();
+  if (!normalizedEndToEndId) {
+    throw new Error("endToEndId obrigatorio para consulta de saque PIX.");
+  }
+
+  if (isPixMockEnabled()) {
+    return {
+      endToEndId: normalizedEndToEndId,
+      status: "REALIZADO",
+      raw: {
+        mocked: true,
+        mode: "PIX_MOCK_MODE",
+        endToEndId: normalizedEndToEndId,
+      },
+    };
+  }
+
+  const api = new Gerencianet(buildOptions());
+  const response = await api.pixSendDetail({ e2eid: normalizedEndToEndId }, []);
+
+  return {
+    endToEndId: response?.endToEndId || response?.e2eId || normalizedEndToEndId,
+    status: response?.status || null,
+    raw: response,
+  };
+}
