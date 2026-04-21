@@ -33,9 +33,10 @@ function isSessionTokenValid(token) {
 function isUserSessionTokenValid(token) {
   if (!token) return false;
 
-  // Formato: userId.expiresAt.signature
+  // Formato legacy: userId.expiresAt.signature
+  // Formato atual: userId.expiresAt.sessionId.signature
   const parts = token.split(".");
-  if (parts.length !== 3) return false;
+  if (parts.length !== 3 && parts.length !== 4) return false;
 
   const expiresAt = Number(parts[1]);
   if (!expiresAt || Number.isNaN(expiresAt)) return false;
