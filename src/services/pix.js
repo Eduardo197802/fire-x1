@@ -150,6 +150,27 @@ export async function getPixChargeStatus({ txid }) {
   };
 }
 
+export function buildPixWithdrawRequest({ valor, chavePix, requestId, chavePagador }) {
+  // A EFI exige idEnvio alfanumerico com 1 a 35 caracteres.
+  const sanitizedRequestId = String(requestId || "")
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .slice(0, 35);
+  const idEnvio = sanitizedRequestId || `REQ${Date.now().toString(36).toUpperCase()}`;
+
+  return {
+    params: { idEnvio },
+    body: {
+      valor: Number(valor).toFixed(2),
+      pagador: {
+        chave: chavePagador,
+      },
+      favorecido: {
+        chave: chavePix,
+      },
+    },
+  };
+}
+
 export async function sendPixWithdraw({ valor, chavePix, requestId }) {
   if (isPixMockEnabled()) {
     return {
@@ -165,21 +186,14 @@ export async function sendPixWithdraw({ valor, chavePix, requestId }) {
   }
 
   const api = new Gerencianet(buildOptions());
+  const { params, body } = buildPixWithdrawRequest({
+    valor,
+    chavePix,
+    requestId,
+    chavePagador: requireEnv("EFI_PIX_KEY"),
+  });
 
-  // A EFI exige idEnvio alfanumerico com 1 a 35 caracteres.
-  const sanitizedRequestId = String(requestId || "")
-    .replace(/[^a-zA-Z0-9]/g, "")
-    .slice(0, 35);
-  const idEnvio = sanitizedRequestId || `REQ${Date.now().toString(36).toUpperCase()}`;
-
-  const body = {
-    valor: Number(valor).toFixed(2),
-    pagador: {
-      chave: chavePix,
-    },
-  };
-
-  const response = await api.pixSend({ idEnvio }, body);
+  const response = await api.pixSend(params, body);
 
   return {
     endToEndId: response?.endToEndId || response?.e2eId || null,

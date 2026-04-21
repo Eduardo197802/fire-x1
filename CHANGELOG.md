@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-04-21
+- Concluida a Spec 007 em `specs/007-corrigir-saque-pix-efi/` com correcao do payload de saque PIX enviado para a Efi.
+- Diagnosticada falha de saque PIX registrada em `pagamentos.descricao`, com rejeicao da Efi por payload sem `favorecido`.
+- Corrigido `sendPixWithdraw` em `src/services/pix.js` para enviar `pagador.chave` com a chave PIX da conta Efi e `favorecido.chave` com a chave PIX cadastrada pelo usuario.
+- Extraida montagem do request de saque para `buildPixWithdrawRequest`, preservando sanitizacao de `idEnvio` no padrao alfanumerico de 1 a 35 caracteres.
+- Adicionado teste unitario em `specs/unit/pix-withdraw-payload.spec.js` para cobrir o contrato do payload de envio PIX.
+- Validacao executada: `npx jest --runInBand --runTestsByPath specs/unit/pix-withdraw-payload.spec.js specs/features/pix/saque.spec.js`.
+
 ## 2026-04-20
 - Corrigida a geracao do link de acesso administrativo em `src/services/admin-access-link.js`: em producao, a URL publica configurada (`ADMIN_APP_BASE_URL`/`NEXT_PUBLIC_APP_URL`/`APP_URL`) agora tem prioridade sobre o `host` recebido na requisicao, evitando e-mails com link `http://localhost:3000/...` atras de proxy reverso.
 - Corrigido o fluxo de link administrativo temporário: `GET /admin/acesso/:token` agora grava o cookie HttpOnly `firex1_admin_pending` e só então redireciona para `GET /admin/login`, alinhando o token com a validação de estado em `src/app/api/admin/auth/flow-state/route.js`.
