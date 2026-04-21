@@ -3,6 +3,7 @@ import { init, Pagamento, User, sequelize } from "../../../../services/db";
 import { addMoney, normalizeAmount } from "../../../../services/money";
 import { buildUserRateLimitKey, consumeRateLimit } from "../../../../services/rate-limit";
 import { authenticateUserRequest } from "../../../../services/session-auth";
+import { getPixChargeStatus } from "../../../../services/pix";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -145,6 +146,60 @@ export async function GET(request) {
       } catch {
         // Se falhar, mantem o status pendente para nova tentativa no proximo poll.
       }
+    }
+  }
+
+  // Fallback em producao: se o webhook nao chegou ainda, consulta o status direto na EFI.
+  if (!isPixMockEnabled() && status === "pendente") {
+    try {
+      const efiStatus = await getPixChargeStatus({ txid: pagamento.txid });
+
+      if (efiStatus.paid) {
+        await sequelize.transaction(async (transaction) => {
+          const lockedPagamento = await Pagamento.findOne({
+            where: { id: pagamento.id },
+            transaction,
+            lock: transaction.LOCK.UPDATE
+          });
+
+          if (!lockedPagamento || String(lockedPagamento.status || "").toLowerCase() !== "pendente") {
+            return;
+          }
+
+          const user = await User.findByPk(auth.userId, {
+            transaction,
+            lock: transaction.LOCK.UPDATE
+          });
+
+          if (!user) {
+            return;
+          }
+
+          const valorCredito = normalizeAmount(efiStatus.amount || lockedPagamento.valor);
+          const nowIso = new Date().toISOString();
+
+          await User.update(
+            { saldo: addMoney(user.saldo, valorCredito) },
+            { where: { id: user.id }, transaction }
+          );
+
+          await Pagamento.update(
+            {
+              status: "creditado",
+              valor: valorCredito,
+              processado_em: nowIso,
+              webhook_recebido_em: nowIso
+            },
+            { where: { id: lockedPagamento.id }, transaction }
+          );
+
+          status = "creditado";
+          processadoEm = nowIso;
+          webhookRecebidoEm = nowIso;
+        });
+      }
+    } catch {
+      // Se a consulta externa falhar, mantem pendente para nova tentativa no proximo poll.
     }
   }
 

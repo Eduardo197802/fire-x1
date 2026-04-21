@@ -119,6 +119,37 @@ export async function createPixDepositCharge({ valor, userId }) {
   };
 }
 
+export async function getPixChargeStatus({ txid }) {
+  const normalizedTxid = String(txid || "").trim();
+  if (!normalizedTxid) {
+    throw new Error("txid obrigatório para consulta PIX.");
+  }
+
+  if (isPixMockEnabled()) {
+    return {
+      paid: false,
+      amount: 0,
+      raw: {
+        mocked: true,
+        txid: normalizedTxid,
+      },
+    };
+  }
+
+  const api = new Gerencianet(buildOptions());
+  const response = await api.pixDetailCharge({ txid: normalizedTxid });
+
+  const pixEvents = Array.isArray(response?.pix) ? response.pix : [];
+  const firstPix = pixEvents[0] || null;
+  const amount = Number(firstPix?.valor || firstPix?.valor?.original || 0);
+
+  return {
+    paid: pixEvents.length > 0,
+    amount: Number.isFinite(amount) ? amount : 0,
+    raw: response,
+  };
+}
+
 export async function sendPixWithdraw({ valor, chavePix, requestId }) {
   if (isPixMockEnabled()) {
     return {
