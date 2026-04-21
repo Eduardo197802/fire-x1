@@ -174,7 +174,7 @@ export async function sendPixWithdraw({ valor, chavePix, requestId }) {
 
   const body = {
     valor: Number(valor).toFixed(2),
-    pagador: {
+    favorecido: {
       chave: chavePix,
     },
   };
