@@ -15,6 +15,12 @@ export async function GET(request) {
   await init;
 
   try {
+    const [transacoesCountResult] = await sequelize.query(
+      "SELECT COUNT(*)::int AS total FROM transacoes"
+    );
+
+    const hasTransacoes = Number(transacoesCountResult?.[0]?.total || 0) > 0;
+
     const result = await sequelize.query(
       `
       SELECT
@@ -43,6 +49,43 @@ export async function GET(request) {
       `,
       { type: sequelize.QueryTypes.SELECT }
     );
+
+    if (!hasTransacoes) {
+      const pagamentosResult = await sequelize.query(
+        `
+        SELECT
+          COALESCE(SUM(CASE 
+            WHEN LOWER(COALESCE(tipo, '')) = 'deposito'
+             AND LOWER(COALESCE(status, '')) IN ('confirmado', 'creditado', 'concluido', 'pago', 'processado', 'sucesso')
+            THEN COALESCE(valor, amount, 0)
+            ELSE 0
+          END), 0) AS total_entradas_usuarios,
+          COALESCE(SUM(CASE 
+            WHEN LOWER(COALESCE(tipo, '')) = 'deposito'
+             AND LOWER(COALESCE(status, '')) IN ('confirmado', 'creditado', 'concluido', 'pago', 'processado', 'sucesso')
+            THEN COALESCE(valor, amount, 0)
+            ELSE 0
+          END), 0) AS total_depositos,
+          COALESCE(SUM(CASE 
+            WHEN LOWER(COALESCE(tipo, '')) = 'saque'
+             AND LOWER(COALESCE(status, '')) IN ('confirmado', 'creditado', 'concluido', 'pago', 'processado', 'sucesso')
+            THEN COALESCE(valor, amount, 0)
+            ELSE 0
+          END), 0) AS total_saidas_usuarios,
+          COALESCE(SUM(CASE 
+            WHEN LOWER(COALESCE(tipo, '')) = 'saque'
+             AND LOWER(COALESCE(status, '')) IN ('confirmado', 'creditado', 'concluido', 'pago', 'processado', 'sucesso')
+            THEN COALESCE(valor, amount, 0)
+            ELSE 0
+          END), 0) AS total_saques,
+          0 AS total_comissoes
+        FROM pagamentos
+        `,
+        { type: sequelize.QueryTypes.SELECT }
+      );
+
+      result[0] = pagamentosResult[0] || {};
+    }
 
     const row = result[0] || {};
     const totalEntradas = parseFloat(row.total_entradas_usuarios || 0);

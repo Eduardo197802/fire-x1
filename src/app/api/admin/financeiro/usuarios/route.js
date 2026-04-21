@@ -18,6 +18,12 @@ export async function GET(request) {
   await init;
 
   try {
+    const [transacoesCountResult] = await sequelize.query(
+      "SELECT COUNT(*)::int AS total FROM transacoes"
+    );
+
+    const hasTransacoes = Number(transacoesCountResult?.[0]?.total || 0) > 0;
+
     const result = await sequelize.query(
       `
       SELECT
@@ -40,6 +46,40 @@ export async function GET(request) {
         type: sequelize.QueryTypes.SELECT
       }
     );
+
+    if (!hasTransacoes) {
+      const pagamentosResult = await sequelize.query(
+        `
+        SELECT
+          c.user_id,
+          u.email,
+          u.nome,
+          c.saldo,
+          c.atualizado_em,
+          COALESCE(SUM(COALESCE(p.valor, p.amount, 0)) FILTER (
+            WHERE LOWER(COALESCE(p.tipo, '')) = 'deposito'
+              AND LOWER(COALESCE(p.status, '')) IN ('confirmado', 'creditado', 'concluido', 'pago', 'processado', 'sucesso')
+          ), 0) AS total_entradas,
+          COALESCE(SUM(COALESCE(p.valor, p.amount, 0)) FILTER (
+            WHERE LOWER(COALESCE(p.tipo, '')) = 'saque'
+              AND LOWER(COALESCE(p.status, '')) IN ('confirmado', 'creditado', 'concluido', 'pago', 'processado', 'sucesso')
+          ), 0) AS total_saidas
+        FROM contas c
+        LEFT JOIN users u ON c.user_id = u.id
+        LEFT JOIN pagamentos p ON c.user_id = p.user_id
+        GROUP BY c.user_id, u.email, u.nome, c.saldo, c.atualizado_em
+        ORDER BY c.user_id DESC
+        LIMIT :limite
+        `,
+        {
+          replacements: { limite },
+          type: sequelize.QueryTypes.SELECT
+        }
+      );
+
+      result.length = 0;
+      result.push(...pagamentosResult);
+    }
 
     const usuarios = result.map((row) => ({
       user_id: row.user_id,

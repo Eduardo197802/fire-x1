@@ -39,6 +39,12 @@ export async function GET(request) {
   await init;
 
   try {
+    const [transacoesCountResult] = await sequelize.query(
+      "SELECT COUNT(*)::int AS total FROM transacoes"
+    );
+
+    const hasTransacoes = Number(transacoesCountResult?.[0]?.total || 0) > 0;
+
     const result = await sequelize.query(
       `
       SELECT
@@ -59,6 +65,43 @@ export async function GET(request) {
         type: sequelize.QueryTypes.SELECT
       }
     );
+
+    if (!hasTransacoes) {
+      const pagamentosResult = await sequelize.query(
+        `
+        SELECT
+          DATE(created_at) AS data,
+          COUNT(*) FILTER (
+            WHERE LOWER(COALESCE(tipo, '')) = 'deposito'
+              AND LOWER(COALESCE(status, '')) IN ('confirmado', 'creditado', 'concluido', 'pago', 'processado', 'sucesso')
+          ) AS qtd_entradas,
+          COUNT(*) FILTER (
+            WHERE LOWER(COALESCE(tipo, '')) = 'saque'
+              AND LOWER(COALESCE(status, '')) IN ('confirmado', 'creditado', 'concluido', 'pago', 'processado', 'sucesso')
+          ) AS qtd_saidas,
+          COALESCE(SUM(COALESCE(valor, amount, 0)) FILTER (
+            WHERE LOWER(COALESCE(tipo, '')) = 'deposito'
+              AND LOWER(COALESCE(status, '')) IN ('confirmado', 'creditado', 'concluido', 'pago', 'processado', 'sucesso')
+          ), 0) AS total_entradas,
+          COALESCE(SUM(COALESCE(valor, amount, 0)) FILTER (
+            WHERE LOWER(COALESCE(tipo, '')) = 'saque'
+              AND LOWER(COALESCE(status, '')) IN ('confirmado', 'creditado', 'concluido', 'pago', 'processado', 'sucesso')
+          ), 0) AS total_saidas
+        FROM pagamentos
+        WHERE DATE(created_at) >= :de
+          AND DATE(created_at) <= :ate
+        GROUP BY DATE(created_at)
+        ORDER BY DATE(created_at) ASC
+        `,
+        {
+          replacements: { de, ate },
+          type: sequelize.QueryTypes.SELECT
+        }
+      );
+
+      result.length = 0;
+      result.push(...pagamentosResult);
+    }
 
     const diarios = result.map((row) => ({
       data: row.data,
