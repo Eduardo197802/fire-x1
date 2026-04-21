@@ -18,11 +18,6 @@ const resolveBaseUrl = (request) => {
   const host = request?.headers?.get("host") || "localhost:3000";
   const proto = request?.headers?.get("x-forwarded-proto") || "http";
   const requestBaseUrl = `${proto}://${host}`.replace(/^https?:\/\/www\./i, "https://");
-  const isLocalRequest = /^(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i.test(host);
-
-  if (isLocalRequest) {
-    return requestBaseUrl;
-  }
 
   const configured = String(
     process.env.ADMIN_APP_BASE_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || ""
@@ -30,6 +25,12 @@ const resolveBaseUrl = (request) => {
 
   if (configured) {
     return configured.replace(/\/$/, "").replace(/^https?:\/\/www\./i, "https://");
+  }
+
+  const isLocalRequest = /^(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i.test(host);
+
+  if (isLocalRequest) {
+    return requestBaseUrl;
   }
 
   return requestBaseUrl;

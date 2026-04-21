@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-04-20
+- Corrigida a geracao do link de acesso administrativo em `src/services/admin-access-link.js`: em producao, a URL publica configurada (`ADMIN_APP_BASE_URL`/`NEXT_PUBLIC_APP_URL`/`APP_URL`) agora tem prioridade sobre o `host` recebido na requisicao, evitando e-mails com link `http://localhost:3000/...` atras de proxy reverso.
 - Corrigido o fluxo de link administrativo temporário: `GET /admin/acesso/:token` agora grava o cookie HttpOnly `firex1_admin_pending` e só então redireciona para `GET /admin/login`, alinhando o token com a validação de estado em `src/app/api/admin/auth/flow-state/route.js`.
 - Criada a Spec 005 em `specs/005-admin-access-link-local/` para rastrear a correcao do fluxo local de solicitacao de link administrativo.
 - `src/services/db.js` passou a preferir `DATABASE_URL` quando configurada, mantendo fallback para as variaveis `DB_*`.
